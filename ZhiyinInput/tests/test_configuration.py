@@ -12,7 +12,11 @@ sys.path.insert(0, str(PROJECT_DIR / "scripts"))
 from install_dev import install
 from zhiyin_support import (
     COLOR_SCHEME_KEYS,
+    KNOWN_SCHEMA_IDS,
+    LEGACY_T9_SCHEMA_IDS,
+    MANAGED_WEASEL_STYLE_KEYS,
     ensure_color_schemes,
+    ensure_patch_entries,
     extract_schema_ids,
     replace_color_scheme,
     replace_schema_list,
@@ -89,6 +93,26 @@ class ConfigurationTests(unittest.TestCase):
                 updated.count(f"preset_color_schemes/{scheme}"),
                 1,
             )
+        self.assertIn("prevpage_color:", updated)
+        self.assertIn("nextpage_color:", updated)
+
+    def test_managed_weasel_style_is_updated_without_changing_theme(self):
+        template = (
+            PROJECT_DIR
+            / "weasel"
+            / "data"
+            / "zhiyin.weasel.yaml"
+        ).read_text(encoding="utf-8")
+        updated = ensure_patch_entries(
+            WEASEL_CUSTOM + '  "style/horizontal": false\n',
+            template,
+            MANAGED_WEASEL_STYLE_KEYS,
+        )
+
+        self.assertIn('"style/color_scheme": android', updated)
+        self.assertIn('"style/horizontal": true', updated)
+        self.assertEqual(updated.count("style/horizontal"), 1)
+        self.assertIn('"style/layout/max_width": 0', updated)
 
     def test_installer_merges_existing_user_configuration(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -105,11 +129,15 @@ class ConfigurationTests(unittest.TestCase):
             schema_ids = extract_schema_ids(
                 default_target.read_text(encoding="utf-8")
             )
-            self.assertEqual(schema_ids[:2], ["t9_pos", "custom_schema"])
-            self.assertIn("zhiyin_t9", schema_ids)
-            self.assertIn("zhiyin_full", schema_ids)
+            self.assertEqual(schema_ids[0], "custom_schema")
+            self.assertTrue(set(KNOWN_SCHEMA_IDS).issubset(schema_ids))
+            self.assertFalse(set(LEGACY_T9_SCHEMA_IDS).intersection(schema_ids))
             self.assertIn(
                 '"style/color_scheme": android',
+                weasel_target.read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                '"style/horizontal": true',
                 weasel_target.read_text(encoding="utf-8"),
             )
             self.assertTrue(

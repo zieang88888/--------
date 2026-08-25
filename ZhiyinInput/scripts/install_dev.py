@@ -15,14 +15,22 @@ if str(TOOLS_DIR) not in sys.path:
 
 from zhiyin_support import (  # noqa: E402
     KNOWN_SCHEMA_IDS,
+    LEGACY_T9_SCHEMA_IDS,
+    MANAGED_WEASEL_STYLE_KEYS,
     backup_once,
     ensure_color_schemes,
+    ensure_patch_entries,
     extract_schema_ids,
     get_rime_user_dir,
     get_weasel_root,
     redeploy_weasel,
     replace_schema_list,
     schema_list_with_preferred,
+)
+from brand_zhiyin import (  # noqa: E402
+    notify_input_settings_changed,
+    update_installation_name,
+    update_profile_names,
 )
 
 
@@ -48,6 +56,7 @@ def _install_default_config(source, target):
         content,
         existing_ids,
         KNOWN_SCHEMA_IDS,
+        excluded_ids=LEGACY_T9_SCHEMA_IDS,
     )
     updated = replace_schema_list(content, schema_ids)
     if updated != content:
@@ -63,6 +72,11 @@ def _install_weasel_config(source, target):
 
     content = target.read_text(encoding="utf-8")
     updated = ensure_color_schemes(content, template)
+    updated = ensure_patch_entries(
+        updated,
+        template,
+        MANAGED_WEASEL_STYLE_KEYS,
+    )
     if updated != content:
         backup_once(target)
         target.write_text(updated, encoding="utf-8")
@@ -127,6 +141,10 @@ def main():
         args.rime_dir or get_rime_user_dir(),
         deploy=not args.no_deploy,
     )
+    branding = update_profile_names()
+    update_installation_name(result["rime_dir"])
+    if branding["updated"]:
+        notify_input_settings_changed()
     print(f"目标目录: {result['rime_dir']}")
     print(f"已复制 {result['schema_count']} 个方案文件")
     print(f"已复制 {result['lua_count']} 个实验 Lua 文件（默认未启用）")
@@ -141,6 +159,13 @@ def main():
         print("已启动小狼毫重新部署")
     else:
         print("未找到 WeaselDeployer.exe，请手动重新部署")
+    if branding["errors"]:
+        print(
+            "提示: Windows 列表仍显示“小狼毫”时，请以管理员身份运行 "
+            r"scripts\brand_zhiyin.py"
+        )
+    else:
+        print("Windows 输入法名称: 知音输入法")
     return 0
 
 

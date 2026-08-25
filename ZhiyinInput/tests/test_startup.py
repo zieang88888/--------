@@ -69,6 +69,33 @@ class StartupTests(unittest.TestCase):
         self.assertIn("后台启动知音悬浮工具栏", output.getvalue())
         start_toolbar.assert_not_called()
 
+    def test_brand_option_runs_elevated_branding_tool(self):
+        with mock.patch.object(
+            start_zhiyin,
+            "get_rime_user_dir",
+            return_value=Path("Rime"),
+        ), mock.patch.object(
+            start_zhiyin,
+            "installation_complete",
+            return_value=True,
+        ), mock.patch.object(
+            start_zhiyin,
+            "first_run_completed",
+            return_value=True,
+        ), mock.patch.object(
+            start_zhiyin,
+            "run_branding",
+            return_value=0,
+        ) as run_branding, mock.patch.object(
+            start_zhiyin,
+            "start_toolbar",
+        ) as start_toolbar:
+            result = start_zhiyin.main(["--brand", "--no-toolbar"])
+
+        self.assertEqual(result, 0)
+        run_branding.assert_called_once_with()
+        start_toolbar.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

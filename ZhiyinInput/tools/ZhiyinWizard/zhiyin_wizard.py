@@ -28,6 +28,7 @@ if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
 
 from zhiyin_support import (  # noqa: E402
+    LEGACY_T9_SCHEMA_IDS,
     backup_once,
     get_rime_user_dir,
     redeploy_weasel,
@@ -55,8 +56,9 @@ STEPS = [
      "  按 2-4-3   （abc-ghi-def）→ 候选「吃」\n"
      "  按 0        （空格）→ 上屏首选\n"
      "  看候选注释   → 确认当前候选的完整拼音\n"
-     "  按 \\ 键     → 切换下一候选并查看其拼音\n"
-     "  按 [ / ]    → 查看上一页 / 下一页候选\n"
+     "  小键盘 / *   → 切换前后候选并查看其拼音\n"
+     "  小键盘 - +   → 查看上一页 / 下一页候选\n"
+     "  小键盘 Enter → 上屏首选\n"
      "  按 Ctrl+Shift+1 → 切换 九键/26键", None),
     ("个性化", "把输入法调成你喜欢的样子", None, "skin"),
     ("完成", "一切就绪", "现在就试试吧！\n在任意输入框按九键，开始你的知音之旅。", None),
@@ -262,6 +264,7 @@ class Wizard:
             content,
             [selected],
             known_ids,
+            excluded_ids=LEGACY_T9_SCHEMA_IDS,
         )
         target.write_text(
             replace_schema_list(content, schema_ids),

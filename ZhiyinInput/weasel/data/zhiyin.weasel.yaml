@@ -23,17 +23,17 @@ patch:
   "style/comment_font_point": 11
   "style/candidate_abbreviate_length": 0
   "style/click_to_capture": false
-  "style/horizontal": false
+  "style/horizontal": true
   "style/fullscreen": false
   "style/inline_preedit": false
   "style/preedit_type": composition
   "style/display_tray_icon": true
-  "style/label_format": "%s."
+  "style/label_format": "%s "
   "style/mark_text": ""
   "style/hover_type": semi_light
-  "style/paging_on_scroll": false
+  "style/paging_on_scroll": true
   "style/layout/align_type": center
-  "style/layout/max_width": 600
+  "style/layout/max_width": 0
   "style/layout/min_width": 240
   "style/layout/max_height": 260
   "style/layout/border_width": 1
@@ -68,6 +68,8 @@ patch:
     candidate_shadow_color: 0x00000000
     comment_text_color: 0x454fc9
     hilited_comment_text_color: 0xffffff
+    prevpage_color: 0x454fc9
+    nextpage_color: 0x454fc9
 
   "preset_color_schemes/ink_gray":
     name: "知音·水墨"
@@ -84,6 +86,8 @@ patch:
     candidate_back_color: 0xfafafd
     comment_text_color: 0x808080
     hilited_comment_text_color: 0xd0d0d0
+    prevpage_color: 0x575757
+    nextpage_color: 0x575757
 
   "preset_color_schemes/cyber_cyan":
     name: "知音·清透青"
@@ -100,6 +104,8 @@ patch:
     candidate_back_color: 0x24201d
     comment_text_color: 0xd4a629
     hilited_comment_text_color: 0x18120f
+    prevpage_color: 0xd4a629
+    nextpage_color: 0xd4a629
 
   "preset_color_schemes/cherry_pink":
     name: "知音·樱粉"
@@ -116,3 +122,5 @@ patch:
     candidate_back_color: 0xf5f5ff
     comment_text_color: 0xb8a4f8
     hilited_comment_text_color: 0xffffff
+    prevpage_color: 0xb8a4f8
+    nextpage_color: 0xb8a4f8

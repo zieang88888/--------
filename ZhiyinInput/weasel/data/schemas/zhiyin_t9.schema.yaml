@@ -14,7 +14,7 @@
 #
 # 知音相对原作的增强：
 #   ① 候选词 comment 原生显示完整拼音，方便识别同码音节
-#   ② `\` 切换下一候选并同步查看其拼音
+#   ② 小键盘 `/`、`*` 切换前后候选并同步查看其拼音
 #   ③ `[` / `]` 前后翻页，查看更多候选词
 #   ④ 候选词 page_size 默认 7（原作 5）
 #   ⑤ 与独立悬浮工具栏的中英、标点和方案快捷键联动
@@ -24,9 +24,10 @@
 #     及 key_binder/bindings 自定义的任意键
 #   - 主键盘横排数字 1~7：候选窗出现时快捷选字（第 1~7 个候选）
 #   - 空格：上屏首选；Tab/Shift+Tab：循环候选
-#   - `\`：切换下一候选并查看其拼音
+#   - 小键盘 `/`、`*`：切换前后候选并查看其拼音
 #   - `[` / `]`：前后翻页，查看更多词
 #   - 减号(-)/等号(=)、小键盘减/加：翻页
+#   - 小键盘回车：上屏首选
 #   - BackSpace：删除 / Escape：清空
 #   - Shift：临时英文 / Control+Shift+2：中英
 # ====================================================================
@@ -34,13 +35,13 @@
 schema:
   schema_id: zhiyin_t9
   name: "知音九键"
-  version: "1.0.0"
+  version: "1.1.0"
   author:
     - 李子旺 (知音输入法开发者)
     - 玄离199 (原作 t9 作者)
   description: |
     知音·默认九键方案。数字与手机九键一一对应。
-    候选词显示完整拼音注释；按 `\` 切换候选，按 `]` 查看下一页。
+    候选词显示完整拼音注释；小键盘 `/`、`*` 切换拼音，`-`、`+` 翻页。
     按键映射可在 zhiyin_t9.custom.yaml 中自定义。
 
 switches:
@@ -105,6 +106,7 @@ translator:
   preedit_uses_spelling: true
   # 使用 Rime 原生候选注释显示九键编码对应的拼音
   spelling_hints: 9
+  always_show_comments: true
   comment_format:
     - xform/([nl])v/$1ü/
     - xform/([jqxy])v/$1u/
@@ -194,12 +196,17 @@ key_binder:
     - {accept: KP_8, send: 8, when: always}
     - {accept: KP_9, send: 9, when: always}
     - {accept: KP_0, send: 0, when: always}
-    # ---- 小键盘其余按键 ----
-    - {accept: KP_Subtract, send: minus,    when: always}
-    - {accept: KP_Add,      send: equal,    when: always}
-    - {accept: KP_Decimal,  send: period,   when: always}
-    - {accept: KP_Divide,   send: slash,    when: always}
-    - {accept: KP_Enter,    send: Return,   when: composing}
+    # ---- 小键盘附近：拼音、翻页、标点与上屏 ----
+    - {accept: KP_Divide,   send: Shift+Tab, when: has_menu}
+    - {accept: KP_Divide,   send: slash,     when: always}
+    - {accept: KP_Multiply, send: Tab,       when: has_menu}
+    - {accept: KP_Subtract, send: Page_Up,   when: paging}
+    - {accept: KP_Subtract, send: minus,     when: always}
+    - {accept: KP_Add,      send: Page_Down, when: has_menu}
+    - {accept: KP_Add,      send: plus,      when: always}
+    - {accept: KP_Decimal,  send: period,    when: always}
+    - {accept: KP_Enter,    send: space,     when: has_menu}
+    - {accept: KP_Enter,    send: Return,    when: composing}
 
 recognizer:
   import_preset: default

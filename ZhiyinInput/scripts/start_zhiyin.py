@@ -16,6 +16,11 @@ if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
 
 from install_dev import install  # noqa: E402
+from brand_zhiyin import (  # noqa: E402
+    notify_input_settings_changed,
+    update_installation_name,
+    update_profile_names,
+)
 from zhiyin_support import KNOWN_SCHEMA_IDS, get_rime_user_dir  # noqa: E402
 
 
@@ -25,6 +30,7 @@ TOOLBAR_SCRIPT = (
 WIZARD_SCRIPT = (
     PROJECT_DIR / "tools" / "ZhiyinWizard" / "zhiyin_wizard.py"
 )
+BRANDING_SCRIPT = PROJECT_DIR / "scripts" / "brand_zhiyin.py"
 FIRST_RUN_FILE = (
     Path(os.getenv("APPDATA", str(Path.home())))
     / "Zhiyin"
@@ -79,6 +85,14 @@ def run_wizard(force=False):
     ).returncode
 
 
+def run_branding():
+    return subprocess.run(
+        [sys.executable, str(BRANDING_SCRIPT)],
+        cwd=str(PROJECT_DIR),
+        check=False,
+    ).returncode
+
+
 def start_toolbar():
     creationflags = 0
     if os.name == "nt":
@@ -126,6 +140,11 @@ def main(argv=None):
         help="强制重新部署输入方案",
     )
     parser.add_argument(
+        "--brand",
+        action="store_true",
+        help="请求管理员权限，将 Windows 输入法名称改为知音输入法",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="只显示将执行的步骤",
@@ -148,6 +167,8 @@ def main(argv=None):
             action for action in actions
             if action != "后台启动知音悬浮工具栏"
         ]
+    if args.brand:
+        actions.insert(0, "将 Windows 输入法名称改为知音输入法")
 
     if args.dry_run:
         print(f"小狼毫用户目录: {rime_dir}")
@@ -162,6 +183,21 @@ def main(argv=None):
             f"{result['rime_dir']}"
         )
 
+    if args.brand:
+        if run_branding() != 0:
+            print("[错误] Windows 输入法名称修改失败或管理员授权被取消。")
+            return 1
+    else:
+        branding = update_profile_names()
+        update_installation_name(rime_dir)
+        if branding["updated"]:
+            notify_input_settings_changed()
+        if branding["errors"]:
+            print(
+                "[提示] Windows 列表仍显示“小狼毫”时，请重新运行 "
+                r"启动知音输入法.bat --brand"
+            )
+
     if args.setup or not first_run_completed():
         if run_wizard(force=args.setup) != 0:
             print("[错误] 新手引导启动失败")
@@ -173,7 +209,7 @@ def main(argv=None):
             return 1
         print("知音悬浮工具栏已启动，Ctrl+Alt+L 可显示或隐藏。")
 
-    print("使用 Win+Space 选择小狼毫，然后选择知音输入方案。")
+    print("使用 Win+Space 选择“知音输入法”，然后选择知音输入方案。")
     return 0
 
 

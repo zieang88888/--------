@@ -20,7 +20,7 @@
 schema:
   schema_id: zhiyin_t9_pos
   name: "知音九键·位置"
-  version: "1.0.0"
+  version: "1.1.0"
   author:
     - 李子旺 (知音输入法开发者)
     - 玄离199 (原作 t9_pos 作者)
@@ -88,6 +88,7 @@ translator:
   preedit_format: []
   preedit_uses_spelling: true
   spelling_hints: 9
+  always_show_comments: true
   comment_format:
     - xform/([nl])v/$1ü/
     - xform/([jqxy])v/$1u/
@@ -176,11 +177,17 @@ key_binder:
     - {accept: KP_2, send: 8, when: always}
     - {accept: KP_3, send: 9, when: always}
     - {accept: KP_0, send: 0, when: always}
-    - {accept: KP_Subtract, send: minus,  when: always}
-    - {accept: KP_Add,      send: equal,  when: always}
-    - {accept: KP_Decimal,  send: period, when: always}
-    - {accept: KP_Divide,   send: slash,  when: always}
-    - {accept: KP_Enter,    send: Return, when: composing}
+    # 小键盘附近：拼音、翻页、标点与上屏
+    - {accept: KP_Divide,   send: Shift+Tab, when: has_menu}
+    - {accept: KP_Divide,   send: slash,     when: always}
+    - {accept: KP_Multiply, send: Tab,       when: has_menu}
+    - {accept: KP_Subtract, send: Page_Up,   when: paging}
+    - {accept: KP_Subtract, send: minus,     when: always}
+    - {accept: KP_Add,      send: Page_Down, when: has_menu}
+    - {accept: KP_Add,      send: plus,      when: always}
+    - {accept: KP_Decimal,  send: period,    when: always}
+    - {accept: KP_Enter,    send: space,     when: has_menu}
+    - {accept: KP_Enter,    send: Return,    when: composing}
 
 recognizer:
   import_preset: default

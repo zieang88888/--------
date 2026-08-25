@@ -21,11 +21,32 @@ KNOWN_SCHEMA_IDS = (
     "zhiyin_double",
 )
 
+LEGACY_T9_SCHEMA_IDS = (
+    "t9",
+    "t9_pos",
+)
+
 COLOR_SCHEME_KEYS = (
     "zhiyin_red",
     "ink_gray",
     "cyber_cyan",
     "cherry_pink",
+)
+
+MANAGED_WEASEL_STYLE_KEYS = (
+    "style/horizontal",
+    "style/inline_preedit",
+    "style/preedit_type",
+    "style/display_tray_icon",
+    "style/label_format",
+    "style/hover_type",
+    "style/paging_on_scroll",
+    "style/layout/max_width",
+)
+
+MANAGED_COLOR_SCHEME_KEYS = (
+    "prevpage_color",
+    "nextpage_color",
 )
 
 
@@ -206,15 +227,25 @@ def replace_schema_list(content, schema_ids):
     return "\n".join(lines).rstrip() + "\n"
 
 
-def schema_list_with_preferred(content, preferred_ids, ensured_ids=()):
-    """Move preferred IDs first while retaining existing third-party schemas."""
+def schema_list_with_preferred(
+    content,
+    preferred_ids,
+    ensured_ids=(),
+    excluded_ids=(),
+):
+    """Move preferred IDs first while retaining other third-party schemas."""
+    excluded = set(excluded_ids)
     result = []
     for schema_id in (
         *preferred_ids,
         *ensured_ids,
         *extract_schema_ids(content),
     ):
-        if schema_id and schema_id not in result:
+        if (
+            schema_id
+            and schema_id not in excluded
+            and schema_id not in result
+        ):
             result.append(schema_id)
     return result
 
@@ -280,6 +311,79 @@ def _patch_block_end(lines, patch_index):
     return end
 
 
+def ensure_patch_entries(content, template, keys):
+    """Insert or update selected top-level entries in a YAML patch block."""
+    lines = content.splitlines()
+    patch_index = next(
+        (
+            index
+            for index, line in enumerate(lines)
+            if re.match(r"^patch\s*:\s*$", line)
+        ),
+        None,
+    )
+    if patch_index is None:
+        if lines and lines[-1].strip():
+            lines.append("")
+        lines.append("patch:")
+        patch_index = len(lines) - 1
+
+    for key in keys:
+        desired = _extract_patch_entry(template, key)
+        if not desired:
+            continue
+        current = _extract_patch_entry("\n".join(lines), key)
+        if current:
+            start = next(
+                index
+                for index, line in enumerate(lines)
+                if line == current[0]
+            )
+            lines[start : start + len(current)] = desired
+        else:
+            insert_at = _patch_block_end(lines, patch_index)
+            if insert_at > 0 and lines[insert_at - 1].strip():
+                desired = ["", *desired]
+            lines[insert_at:insert_at] = desired
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _merge_color_scheme_fields(lines, template, scheme):
+    key = f"preset_color_schemes/{scheme}"
+    target_entry = _extract_patch_entry("\n".join(lines), key)
+    source_entry = _extract_patch_entry(template, key)
+    if not target_entry or not source_entry:
+        return lines
+
+    target_start = next(
+        index for index, line in enumerate(lines) if line == target_entry[0]
+    )
+    target_end = target_start + len(target_entry)
+    for field in MANAGED_COLOR_SCHEME_KEYS:
+        pattern = re.compile(rf"^\s{{4}}{re.escape(field)}\s*:")
+        source_line = next(
+            (line for line in source_entry[1:] if pattern.match(line)),
+            None,
+        )
+        if source_line is None:
+            continue
+        target_index = next(
+            (
+                index
+                for index in range(target_start + 1, target_end)
+                if pattern.match(lines[index])
+            ),
+            None,
+        )
+        if target_index is None:
+            lines.insert(target_end, source_line)
+            target_end += 1
+        else:
+            lines[target_index] = source_line
+    return lines
+
+
 def ensure_color_schemes(content, template):
     """Merge Zhiyin theme definitions into an existing weasel.custom.yaml."""
     lines = content.splitlines()
@@ -316,4 +420,7 @@ def ensure_color_schemes(content, template):
 
     if additions:
         lines[insert_at:insert_at] = additions
+
+    for scheme in COLOR_SCHEME_KEYS:
+        lines = _merge_color_scheme_fields(lines, template, scheme)
     return "\n".join(lines).rstrip() + "\n"

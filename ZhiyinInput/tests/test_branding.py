@@ -1,13 +1,20 @@
 # -*- coding: utf-8 -*-
 
+import os
+import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from PIL import Image
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 BRANDING_DIR = PROJECT_DIR / "assets" / "branding"
+sys.path.insert(0, str(PROJECT_DIR / "scripts"))
+
+from brand_zhiyin import install_brand_icon  # noqa: E402
 
 
 class BrandingAssetTests(unittest.TestCase):
@@ -36,6 +43,23 @@ class BrandingAssetTests(unittest.TestCase):
         self.assertTrue(
             {(16, 16), (32, 32), (48, 48), (256, 256)}.issubset(sizes)
         )
+
+    def test_profile_icon_is_copied_to_stable_app_directory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            with mock.patch.dict(
+                os.environ,
+                {"PROGRAMDATA": temporary},
+            ):
+                target = install_brand_icon()
+
+            self.assertEqual(
+                target,
+                Path(temporary) / "ZhiyinInput" / "zhiyin.ico",
+            )
+            self.assertEqual(
+                target.read_bytes(),
+                (BRANDING_DIR / "zhiyin.ico").read_bytes(),
+            )
 
 
 if __name__ == "__main__":
