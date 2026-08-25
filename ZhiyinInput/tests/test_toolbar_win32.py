@@ -24,6 +24,60 @@ class ToolbarWin32Tests(unittest.TestCase):
 
         self.assertEqual(ctypes.sizeof(self.toolbar.INPUT), expected)
 
+    def test_existing_toolbar_is_shown_without_stealing_focus(self):
+        user32 = mock.Mock()
+        user32.FindWindowW.return_value = 123
+
+        with mock.patch.object(self.toolbar, "user32", user32):
+            self.assertTrue(self.toolbar.show_existing_instance())
+
+        user32.FindWindowW.assert_called_once_with(
+            None,
+            self.toolbar.TOOLBAR_WINDOW_TITLE,
+        )
+        user32.ShowWindow.assert_called_once_with(
+            123,
+            self.toolbar.SW_SHOWNOACTIVATE,
+        )
+        user32.SetWindowPos.assert_called_once_with(
+            123,
+            self.toolbar.HWND_TOPMOST,
+            0,
+            0,
+            0,
+            0,
+            (
+                self.toolbar.SWP_NOMOVE
+                | self.toolbar.SWP_NOSIZE
+                | self.toolbar.SWP_NOACTIVATE
+            ),
+        )
+
+    def test_missing_toolbar_window_is_not_reported_as_shown(self):
+        user32 = mock.Mock()
+        user32.FindWindowW.return_value = 0
+
+        with mock.patch.object(self.toolbar, "user32", user32):
+            self.assertFalse(self.toolbar.show_existing_instance())
+
+        user32.ShowWindow.assert_not_called()
+
+    def test_duplicate_startup_shows_the_existing_toolbar(self):
+        with mock.patch.object(
+            self.toolbar,
+            "set_dpi_awareness",
+        ), mock.patch.object(
+            self.toolbar,
+            "acquire_single_instance",
+            return_value=None,
+        ), mock.patch.object(
+            self.toolbar,
+            "show_existing_instance",
+        ) as show_existing:
+            self.toolbar.main()
+
+        show_existing.assert_called_once_with()
+
     def test_punctuation_chord_is_ctrl_period(self):
         events = self.toolbar.build_hotkey_inputs(
             [self.toolbar.VK_CONTROL],

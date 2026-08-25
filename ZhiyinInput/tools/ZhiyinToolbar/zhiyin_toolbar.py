@@ -29,6 +29,7 @@ from zhiyin_support import (  # noqa: E402
 
 # Win32 constants
 HWND_TOPMOST = -1
+SW_SHOWNOACTIVATE = 4
 SWP_NOMOVE = 0x0002
 SWP_NOSIZE = 0x0001
 SWP_NOACTIVATE = 0x0010
@@ -56,6 +57,7 @@ GA_ROOT = 2
 
 ERROR_ALREADY_EXISTS = 183
 MUTEX_NAME = "Local\\ZhiyinToolbar"
+TOOLBAR_WINDOW_TITLE = "知音输入法工具栏"
 
 HOTKEY_TOGGLE = 1
 HOTKEY_VOICE = 2
@@ -98,6 +100,10 @@ user32.SetWindowPos.argtypes = [
     wt.UINT,
 ]
 user32.SetWindowPos.restype = wt.BOOL
+user32.FindWindowW.argtypes = [wt.LPCWSTR, wt.LPCWSTR]
+user32.FindWindowW.restype = wt.HWND
+user32.ShowWindow.argtypes = [wt.HWND, ctypes.c_int]
+user32.ShowWindow.restype = wt.BOOL
 
 
 # Paths and configuration
@@ -145,6 +151,23 @@ def acquire_single_instance():
             kernel32.CloseHandle(handle)
         return None
     return handle
+
+
+def show_existing_instance():
+    hwnd = user32.FindWindowW(None, TOOLBAR_WINDOW_TITLE)
+    if not hwnd:
+        return False
+    user32.ShowWindow(hwnd, SW_SHOWNOACTIVATE)
+    user32.SetWindowPos(
+        hwnd,
+        HWND_TOPMOST,
+        0,
+        0,
+        0,
+        0,
+        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+    )
+    return True
 
 
 def load_config():
@@ -396,7 +419,7 @@ class ZhiyinToolbar:
         self.is_dragging = False
         self.input_target_hwnd = initial_target
 
-        root.title("知音输入法工具栏")
+        root.title(TOOLBAR_WINDOW_TITLE)
         root.overrideredirect(True)
         root.attributes("-topmost", True)
         root.attributes("-alpha", config["opacity"])
@@ -839,6 +862,7 @@ def main():
     set_dpi_awareness()
     mutex = acquire_single_instance()
     if mutex is None:
+        show_existing_instance()
         return
 
     initial_target = user32.GetForegroundWindow()
@@ -847,6 +871,7 @@ def main():
     stop_event = threading.Event()
     root = tk.Tk()
     app = ZhiyinToolbar(root, config, initial_target)
+    app.show()
 
     threading.Thread(
         target=start_hotkey_thread,
