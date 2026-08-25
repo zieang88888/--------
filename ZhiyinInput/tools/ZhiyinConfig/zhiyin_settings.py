@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ctypes
 import json
 import os
 import re
@@ -34,15 +35,18 @@ RIME_DIR = get_rime_user_dir()
 APPDATA = Path(os.getenv("APPDATA", str(Path.home())))
 TOOLBAR_CONFIG = APPDATA / "Zhiyin" / "zhiyin_toolbar.json"
 LOGO_PATH = PROJECT_DIR / "assets" / "branding" / "zhiyin-logo-64.png"
+SETTINGS_WINDOW_TITLE = "知音输入法设置"
 
-ACCENT = "#d84a3a"
-SIDEBAR = "#242424"
-SIDEBAR_HOVER = "#353535"
-BG = "#f5f6f8"
+ACCENT = "#ff654f"
+ACCENT_DARK = "#e95240"
+ACCENT_SOFT = "#ffede8"
+SIDEBAR = "#f6f7fb"
+SIDEBAR_HOVER = "#eef0f5"
+BG = "#ffffff"
 PANEL = "#ffffff"
-FG = "#202124"
-MUTED = "#6f7378"
-BORDER = "#dfe2e6"
+FG = "#22252a"
+MUTED = "#7a8089"
+BORDER = "#e5e7eb"
 
 SCHEMAS = (
     ("知音九键", "zhiyin_t9"),
@@ -186,6 +190,108 @@ def launch_script(relative_path, *arguments):
         return False
 
 
+def show_existing_settings():
+    try:
+        user32 = ctypes.windll.user32
+        hwnd = user32.FindWindowW(None, SETTINGS_WINDOW_TITLE)
+        if not hwnd:
+            return False
+        user32.ShowWindow(hwnd, 9)
+        user32.SetForegroundWindow(hwnd)
+        return True
+    except (AttributeError, OSError):
+        return False
+
+
+class ToggleSwitch(tk.Canvas):
+    """Compact switch control backed by a BooleanVar."""
+
+    def __init__(self, parent, variable):
+        super().__init__(
+            parent,
+            width=40,
+            height=22,
+            bg=PANEL,
+            bd=0,
+            highlightthickness=0,
+            cursor="hand2",
+        )
+        self.variable = variable
+        self.bind("<Button-1>", self._toggle)
+        self._draw()
+
+    def _toggle(self, _event=None):
+        self.variable.set(not self.variable.get())
+        self._draw()
+
+    def _draw(self):
+        self.delete("all")
+        active = bool(self.variable.get())
+        color = ACCENT if active else "#c8ccd2"
+        self.create_oval(1, 2, 19, 20, fill=color, outline=color)
+        self.create_oval(21, 2, 39, 20, fill=color, outline=color)
+        self.create_rectangle(10, 2, 30, 20, fill=color, outline=color)
+        knob_x = 29 if active else 11
+        self.create_oval(
+            knob_x - 7,
+            4,
+            knob_x + 7,
+            18,
+            fill="#ffffff",
+            outline="#ffffff",
+        )
+
+
+class SegmentedControl(tk.Frame):
+    """Text choices rendered as a compact segmented selector."""
+
+    def __init__(self, parent, variable, choices, width=7):
+        super().__init__(
+            parent,
+            bg=BORDER,
+            highlightbackground=BORDER,
+            highlightthickness=1,
+        )
+        self.variable = variable
+        self.buttons = []
+        for label, value in choices:
+            button = tk.Button(
+                self,
+                text=label,
+                width=width,
+                bg=PANEL,
+                fg=FG,
+                activebackground=ACCENT_SOFT,
+                activeforeground=ACCENT,
+                bd=0,
+                relief="flat",
+                font=("Microsoft YaHei UI", 9),
+                cursor="hand2",
+                command=lambda selected=value: self._select(selected),
+            )
+            button.pack(side="left", padx=(0, 1))
+            self.buttons.append((button, value))
+        self._refresh()
+
+    def _select(self, value):
+        self.variable.set(value)
+        self._refresh()
+
+    def _refresh(self):
+        selected = self.variable.get()
+        for button, value in self.buttons:
+            active = selected == value
+            button.configure(
+                bg=ACCENT_SOFT if active else PANEL,
+                fg=ACCENT if active else FG,
+                font=(
+                    "Microsoft YaHei UI",
+                    9,
+                    "bold" if active else "normal",
+                ),
+            )
+
+
 class SettingsWindow:
     def __init__(self, root):
         self.root = root
@@ -202,33 +308,39 @@ class SettingsWindow:
         self.font_face = tk.StringVar(value=values["font_face"])
         self.font_point = tk.IntVar(value=values["font_point"])
         self.opacity = tk.DoubleVar(value=values["opacity"])
-        self.status = tk.StringVar(value="设置已从当前知音配置中读取")
+        self.status = tk.StringVar(value="已加载当前配置")
         self.active_page = None
         self.nav_buttons = {}
+        self.group_row_counts = {}
+        self.theme_items = []
 
-        root.title("知音输入法设置")
-        root.geometry("920x640")
-        root.minsize(920, 640)
+        root.title(SETTINGS_WINDOW_TITLE)
+        root.geometry("1040x680")
+        root.minsize(920, 620)
         root.configure(bg=BG)
         self._set_icon()
         self._center()
         self._configure_styles()
         self._build_shell()
-        self.show_page("input")
+        self.show_page("common")
 
     def _set_icon(self):
+        self.icon = None
+        self.brand_icon = None
         try:
             if LOGO_PATH.exists():
                 self.icon = tk.PhotoImage(file=str(LOGO_PATH))
                 self.root.iconphoto(True, self.icon)
+                self.brand_icon = self.icon.subsample(2, 2)
         except tk.TclError:
             self.icon = None
+            self.brand_icon = None
 
     def _center(self):
         self.root.update_idletasks()
-        width, height = 920, 640
+        width, height = 1040, 680
         x = max(0, (self.root.winfo_screenwidth() - width) // 2)
-        y = max(0, (self.root.winfo_screenheight() - height) // 3)
+        y = max(0, (self.root.winfo_screenheight() - height) // 2 - 12)
         self.root.geometry(f"{width}x{height}+{x}+{y}")
 
     def _configure_styles(self):
@@ -240,192 +352,331 @@ class SettingsWindow:
         style.configure(
             "Zhiyin.TCombobox",
             font=("Microsoft YaHei UI", 10),
-            padding=5,
-        )
-        style.configure(
-            "Zhiyin.TCheckbutton",
-            background=PANEL,
-            font=("Microsoft YaHei UI", 10),
+            padding=(8, 6),
         )
 
     def _build_shell(self):
         shell = tk.Frame(self.root, bg=BG)
         shell.pack(fill="both", expand=True)
 
-        sidebar = tk.Frame(shell, bg=SIDEBAR, width=188)
-        sidebar.pack(side="left", fill="y")
-        sidebar.pack_propagate(False)
+        self.sidebar = tk.Frame(shell, bg=SIDEBAR, width=190)
+        self.sidebar.pack(side="left", fill="y")
+        self.sidebar.pack_propagate(False)
 
-        brand = tk.Frame(sidebar, bg=SIDEBAR, height=102)
+        brand = tk.Frame(self.sidebar, bg=SIDEBAR, height=86)
         brand.pack(fill="x")
         brand.pack_propagate(False)
+        brand_inner = tk.Frame(brand, bg=SIDEBAR)
+        brand_inner.pack(anchor="w", padx=26, pady=(22, 0))
+        if self.brand_icon is not None:
+            tk.Label(
+                brand_inner,
+                image=self.brand_icon,
+                bg=SIDEBAR,
+                bd=0,
+            ).pack(side="left", padx=(0, 9))
+        else:
+            tk.Label(
+                brand_inner,
+                text="知",
+                bg=ACCENT,
+                fg="#ffffff",
+                font=("Microsoft YaHei UI", 11, "bold"),
+                width=2,
+                pady=3,
+            ).pack(side="left", padx=(0, 9))
         tk.Label(
-            brand,
-            text="知音",
-            bg=ACCENT,
-            fg="#ffffff",
-            font=("Microsoft YaHei UI", 12, "bold"),
-            padx=8,
-            pady=5,
-        ).pack(anchor="w", padx=22, pady=(24, 7))
-        tk.Label(
-            brand,
-            text="输入法设置",
+            brand_inner,
+            text="知音输入法",
             bg=SIDEBAR,
-            fg="#ffffff",
-            font=("Microsoft YaHei UI", 11),
-        ).pack(anchor="w", padx=22)
+            fg=FG,
+            font=("Microsoft YaHei UI", 13, "bold"),
+        ).pack(side="left")
+
+        tk.Label(
+            self.sidebar,
+            text="属性设置",
+            bg=SIDEBAR,
+            fg=MUTED,
+            font=("Microsoft YaHei UI", 9),
+        ).pack(anchor="w", padx=32, pady=(8, 6))
 
         for page_id, label in (
-            ("input", "输入与候选"),
+            ("common", "常用"),
             ("appearance", "外观"),
-            ("tools", "工具"),
-            ("about", "关于"),
+            ("dictionary", "词库"),
+            ("keys", "按键"),
+            ("advanced", "高级"),
         ):
-            button = tk.Button(
-                sidebar,
-                text=label,
-                anchor="w",
-                bg=SIDEBAR,
-                fg="#e8e8e8",
-                activebackground=SIDEBAR_HOVER,
-                activeforeground="#ffffff",
-                bd=0,
-                relief="flat",
-                font=("Microsoft YaHei UI", 10),
-                padx=22,
-                pady=12,
-                cursor="hand2",
-                command=lambda selected=page_id: self.show_page(selected),
-            )
-            button.pack(fill="x")
-            self.nav_buttons[page_id] = button
+            self._add_nav_button(page_id, label)
+
+        separator = tk.Frame(self.sidebar, bg="#e8eaf0", height=1)
+        separator.pack(fill="x", padx=25, pady=(13, 10))
+        self._add_nav_button("about", "关于知音")
 
         tk.Label(
-            sidebar,
-            text="v0.1 开发版",
+            self.sidebar,
+            text="v0.1",
             bg=SIDEBAR,
-            fg="#8e8e8e",
-            font=("Microsoft YaHei UI", 9),
-        ).pack(side="bottom", anchor="w", padx=22, pady=18)
+            fg="#a0a5ad",
+            font=("Microsoft YaHei UI", 8),
+        ).pack(side="bottom", anchor="w", padx=32, pady=18)
 
-        content = tk.Frame(shell, bg=BG)
+        content = tk.Frame(shell, bg=PANEL)
         content.pack(side="left", fill="both", expand=True)
 
-        self.header = tk.Frame(content, bg=PANEL, height=88)
-        self.header.pack(fill="x")
+        self.header = tk.Frame(content, bg=PANEL, height=92)
+        self.header.pack(side="top", fill="x")
         self.header.pack_propagate(False)
         self.page_title = tk.Label(
             self.header,
             text="",
             bg=PANEL,
             fg=FG,
-            font=("Microsoft YaHei UI", 18, "bold"),
+            font=("Microsoft YaHei UI", 23, "bold"),
         )
-        self.page_title.pack(anchor="w", padx=34, pady=(20, 2))
-        self.page_subtitle = tk.Label(
-            self.header,
-            text="",
-            bg=PANEL,
-            fg=MUTED,
-            font=("Microsoft YaHei UI", 9),
-        )
-        self.page_subtitle.pack(anchor="w", padx=34)
-
-        self.body = tk.Frame(content, bg=BG)
-        self.body.pack(fill="both", expand=True, padx=34, pady=24)
+        self.page_title.pack(anchor="w", padx=52, pady=(29, 0))
 
         footer = tk.Frame(content, bg=PANEL, height=62)
-        footer.pack(fill="x", side="bottom")
+        footer.pack(side="bottom", fill="x")
         footer.pack_propagate(False)
+        tk.Frame(footer, bg=BORDER, height=1).pack(fill="x")
         tk.Label(
             footer,
             textvariable=self.status,
             bg=PANEL,
             fg=MUTED,
             font=("Microsoft YaHei UI", 9),
-        ).pack(side="left", padx=28)
+        ).pack(side="left", padx=52)
         self.apply_button = tk.Button(
             footer,
-            text="应用设置",
+            text="应用",
             bg=ACCENT,
             fg="#ffffff",
-            activebackground="#bc3d30",
+            activebackground=ACCENT_DARK,
             activeforeground="#ffffff",
             bd=0,
             relief="flat",
-            padx=24,
+            width=10,
             pady=8,
-            font=("Microsoft YaHei UI", 10, "bold"),
+            font=("Microsoft YaHei UI", 10),
             cursor="hand2",
             command=self.apply,
         )
-        self.apply_button.pack(side="right", padx=24, pady=13)
+        self.apply_button.pack(side="right", padx=(8, 30), pady=12)
+        tk.Button(
+            footer,
+            text="关闭",
+            bg=PANEL,
+            fg=FG,
+            activebackground=SIDEBAR_HOVER,
+            activeforeground=FG,
+            highlightbackground=BORDER,
+            highlightthickness=1,
+            bd=0,
+            relief="flat",
+            width=9,
+            pady=7,
+            font=("Microsoft YaHei UI", 10),
+            cursor="hand2",
+            command=self.root.destroy,
+        ).pack(side="right", pady=12)
+
+        page_host = tk.Frame(content, bg=PANEL)
+        page_host.pack(fill="both", expand=True)
+        self.body_canvas = tk.Canvas(
+            page_host,
+            bg=PANEL,
+            bd=0,
+            highlightthickness=0,
+        )
+        self.scrollbar = ttk.Scrollbar(
+            page_host,
+            orient="vertical",
+            command=self.body_canvas.yview,
+        )
+        self.body_canvas.configure(yscrollcommand=self.scrollbar.set)
+        self.scrollbar.pack(side="right", fill="y")
+        self.body_canvas.pack(side="left", fill="both", expand=True)
+        self.body = tk.Frame(self.body_canvas, bg=PANEL)
+        self.body_window = self.body_canvas.create_window(
+            (0, 0),
+            window=self.body,
+            anchor="nw",
+        )
+        self.body.bind("<Configure>", self._update_scroll_region)
+        self.body_canvas.bind("<Configure>", self._resize_body)
+        self.body_canvas.bind("<Enter>", self._bind_mousewheel)
+        self.body_canvas.bind("<Leave>", self._unbind_mousewheel)
+
+    def _add_nav_button(self, page_id, label):
+        button = tk.Button(
+            self.sidebar,
+            text=label,
+            anchor="w",
+            bg=SIDEBAR,
+            fg=FG,
+            activebackground=SIDEBAR_HOVER,
+            activeforeground=FG,
+            bd=0,
+            relief="flat",
+            font=("Microsoft YaHei UI", 10),
+            padx=24,
+            pady=8,
+            cursor="hand2",
+            command=lambda selected=page_id: self.show_page(selected),
+        )
+        button.pack(fill="x", padx=18, pady=1)
+        self.nav_buttons[page_id] = button
+
+    def _update_scroll_region(self, _event=None):
+        self.body_canvas.configure(
+            scrollregion=self.body_canvas.bbox("all")
+        )
+
+    def _resize_body(self, event):
+        self.body_canvas.itemconfigure(self.body_window, width=event.width)
+
+    def _bind_mousewheel(self, _event=None):
+        self.body_canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _unbind_mousewheel(self, _event=None):
+        self.body_canvas.unbind_all("<MouseWheel>")
+
+    def _on_mousewheel(self, event):
+        self.body_canvas.yview_scroll(int(-event.delta / 120), "units")
 
     def _clear_body(self):
         for widget in self.body.winfo_children():
             widget.destroy()
+        self.group_row_counts.clear()
+        self.theme_items = []
+        self.body_canvas.yview_moveto(0)
 
-    def _section(self, title, description=None):
+    def _section(self, title):
         tk.Label(
             self.body,
             text=title,
-            bg=BG,
-            fg=FG,
-            font=("Microsoft YaHei UI", 11, "bold"),
-        ).pack(anchor="w", pady=(0, 3))
-        if description:
-            tk.Label(
-                self.body,
-                text=description,
-                bg=BG,
-                fg=MUTED,
-                font=("Microsoft YaHei UI", 9),
-            ).pack(anchor="w", pady=(0, 12))
+            bg=PANEL,
+            fg=MUTED,
+            font=("Microsoft YaHei UI", 9),
+        ).pack(anchor="w", padx=52, pady=(5, 8))
+        group = tk.Frame(
+            self.body,
+            bg=PANEL,
+            highlightbackground=BORDER,
+            highlightthickness=1,
+        )
+        group.pack(fill="x", padx=52, pady=(0, 20))
+        self.group_row_counts[group] = 0
+        return group
 
-    def _row(self, label, help_text=""):
-        row = tk.Frame(self.body, bg=PANEL, highlightbackground=BORDER)
-        row.pack(fill="x", pady=1, ipady=11)
+    def _row(self, group, label, help_text="", height=None):
+        if self.group_row_counts.get(group, 0):
+            tk.Frame(group, bg=BORDER, height=1).pack(
+                fill="x",
+                padx=16,
+            )
+        row_height = height or (66 if help_text else 52)
+        row = tk.Frame(group, bg=PANEL, height=row_height)
+        row.pack(fill="x")
+        row.pack_propagate(False)
         text = tk.Frame(row, bg=PANEL)
-        text.pack(side="left", fill="x", expand=True, padx=16)
+        text.pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=(20, 12),
+        )
         tk.Label(
             text,
             text=label,
             bg=PANEL,
             fg=FG,
             font=("Microsoft YaHei UI", 10),
-        ).pack(anchor="w")
+        ).pack(anchor="w", pady=(12 if help_text else 15, 0))
         if help_text:
             tk.Label(
                 text,
                 text=help_text,
                 bg=PANEL,
                 fg=MUTED,
+                justify="left",
+                wraplength=500,
                 font=("Microsoft YaHei UI", 8),
-            ).pack(anchor="w", pady=(2, 0))
+            ).pack(anchor="w", pady=(3, 0))
+        self.group_row_counts[group] = (
+            self.group_row_counts.get(group, 0) + 1
+        )
         return row
+
+    def _value(self, row, text, accent=False):
+        tk.Label(
+            row,
+            text=text,
+            bg=PANEL,
+            fg=ACCENT if accent else MUTED,
+            font=(
+                "Microsoft YaHei UI",
+                9,
+                "bold" if accent else "normal",
+            ),
+        ).pack(side="right", padx=20)
+
+    def _action_button(self, row, label, command, primary=False):
+        button = tk.Button(
+            row,
+            text=label,
+            command=command,
+            bg=ACCENT if primary else PANEL,
+            fg="#ffffff" if primary else ACCENT,
+            activebackground=ACCENT_DARK if primary else ACCENT_SOFT,
+            activeforeground="#ffffff" if primary else ACCENT,
+            highlightbackground=ACCENT,
+            highlightthickness=1 if not primary else 0,
+            bd=0,
+            relief="flat",
+            padx=13,
+            pady=5,
+            font=("Microsoft YaHei UI", 9),
+            cursor="hand2",
+        )
+        button.pack(side="right", padx=20)
+        return button
 
     def show_page(self, page_id):
         self.active_page = page_id
         for key, button in self.nav_buttons.items():
+            active = key == page_id
             button.configure(
-                bg=ACCENT if key == page_id else SIDEBAR,
-                activebackground=ACCENT if key == page_id else SIDEBAR_HOVER,
+                bg=ACCENT_SOFT if active else SIDEBAR,
+                fg=ACCENT if active else FG,
+                activebackground=(
+                    ACCENT_SOFT if active else SIDEBAR_HOVER
+                ),
+                activeforeground=ACCENT if active else FG,
+                font=(
+                    "Microsoft YaHei UI",
+                    10,
+                    "bold" if active else "normal",
+                ),
             )
         self._clear_body()
         {
-            "input": self._render_input,
+            "common": self._render_common,
             "appearance": self._render_appearance,
-            "tools": self._render_tools,
+            "dictionary": self._render_dictionary,
+            "keys": self._render_keys,
+            "advanced": self._render_advanced,
             "about": self._render_about,
         }[page_id]()
+        self._update_scroll_region()
 
-    def _render_input(self):
-        self.page_title.configure(text="输入与候选")
-        self.page_subtitle.configure(text="设置默认方案和候选窗行为")
-        self._section("输入方案")
+    def _render_common(self):
+        self.page_title.configure(text="常用")
 
-        row = self._row("默认输入方案", "重新部署后作为知音方案列表首项")
+        group = self._section("默认状态")
+        row = self._row(group, "默认输入方案")
         ttk.Combobox(
             row,
             textvariable=self.schema,
@@ -433,96 +684,128 @@ class SettingsWindow:
             state="readonly",
             width=20,
             style="Zhiyin.TCombobox",
-        ).pack(side="right", padx=16)
-
-        row = self._row("每页候选数量", "横向候选窗推荐 5 到 7 个")
-        ttk.Combobox(
-            row,
-            textvariable=self.page_size,
-            values=(5, 7, 9),
-            state="readonly",
-            width=8,
-            style="Zhiyin.TCombobox",
-        ).pack(side="right", padx=16)
-
-        row = self._row("横向候选", "候选词与拼音注释按电脑输入法形式横排")
-        ttk.Checkbutton(
-            row,
-            variable=self.horizontal,
-            style="Zhiyin.TCheckbutton",
         ).pack(side="right", padx=20)
 
-        self._section(
-            "小键盘操作",
-            "这些按键在知音九键和知音九键·位置方案中通用",
+        row = self._row(group, "横向排列候选")
+        ToggleSwitch(row, self.horizontal).pack(side="right", padx=20)
+
+        group = self._section("候选设置")
+        row = self._row(group, "每页候选数量")
+        SegmentedControl(
+            row,
+            self.page_size,
+            (("5 个", 5), ("7 个", 7), ("9 个", 9)),
+            width=6,
+        ).pack(side="right", padx=20)
+
+        row = self._row(
+            group,
+            "九键输入",
+            "数字小键盘与主键盘数字均可输入九键编码",
         )
-        for key_text, action in (
-            ("/  和  *", "前后切换候选及拼音"),
-            ("-  和  +", "上一页 / 下一页候选"),
-            ("Enter", "上屏当前首选"),
-            ("小键盘数字", "继续输入九键编码"),
+        self._value(row, "已启用", accent=True)
+
+        group = self._section("小键盘操作")
+        for label, value in (
+            ("候选与拼音切换", "/  和  *"),
+            ("候选翻页", "-  和  +"),
+            ("上屏首选", "Enter"),
+            ("继续输入", "数字键 0-9"),
         ):
-            row = self._row(key_text)
-            tk.Label(
-                row,
-                text=action,
+            row = self._row(group, label)
+            self._value(row, value)
+
+    def _theme_selector(self, parent):
+        selector = tk.Frame(parent, bg=PANEL)
+        selector.pack(side="right", padx=18)
+        for label, _key, color in THEMES:
+            item = tk.Frame(
+                selector,
                 bg=PANEL,
-                fg=MUTED,
-                font=("Microsoft YaHei UI", 9),
-            ).pack(side="right", padx=16)
+                width=88,
+                height=48,
+                highlightbackground=BORDER,
+                highlightthickness=1,
+                cursor="hand2",
+            )
+            item.pack(side="left", padx=3)
+            item.pack_propagate(False)
+            swatch = tk.Canvas(
+                item,
+                width=18,
+                height=18,
+                bg=PANEL,
+                highlightthickness=0,
+                cursor="hand2",
+            )
+            swatch.create_oval(2, 2, 16, 16, fill=color, outline="")
+            swatch.pack(side="left", padx=(10, 4))
+            text = tk.Label(
+                item,
+                text=label,
+                bg=PANEL,
+                fg=FG,
+                font=("Microsoft YaHei UI", 8),
+                cursor="hand2",
+            )
+            text.pack(side="left")
+            for widget in (item, swatch, text):
+                widget.bind(
+                    "<Button-1>",
+                    lambda _event, value=label: self._select_theme(value),
+                )
+            self.theme_items.append((item, swatch, text, label))
+        self._refresh_themes()
+
+    def _select_theme(self, value):
+        self.theme.set(value)
+        self._refresh_themes()
+
+    def _refresh_themes(self):
+        selected = self.theme.get()
+        for item, swatch, text, label in self.theme_items:
+            active = selected == label
+            background = ACCENT_SOFT if active else PANEL
+            item.configure(
+                bg=background,
+                highlightbackground=ACCENT if active else BORDER,
+                highlightthickness=2 if active else 1,
+            )
+            swatch.configure(bg=background)
+            text.configure(
+                bg=background,
+                fg=ACCENT if active else FG,
+            )
 
     def _render_appearance(self):
         self.page_title.configure(text="外观")
-        self.page_subtitle.configure(text="调整候选窗主题、字体和状态栏")
-        self._section("候选窗主题")
 
-        theme_row = tk.Frame(self.body, bg=BG)
-        theme_row.pack(fill="x", pady=(0, 18))
-        for label, _key, color in THEMES:
-            item = tk.Frame(theme_row, bg=PANEL)
-            item.pack(side="left", fill="x", expand=True, padx=(0, 6))
-            swatch = tk.Canvas(
-                item,
-                width=22,
-                height=22,
-                bg=PANEL,
-                highlightthickness=0,
-            )
-            swatch.create_rectangle(3, 3, 19, 19, fill=color, outline="")
-            swatch.pack(pady=(10, 2))
-            tk.Radiobutton(
-                item,
-                text=label,
-                variable=self.theme,
-                value=label,
-                bg=PANEL,
-                fg=FG,
-                activebackground=PANEL,
-                font=("Microsoft YaHei UI", 9),
-            ).pack(pady=(0, 10))
+        group = self._section("候选窗口")
+        row = self._row(group, "配色方案", height=72)
+        self._theme_selector(row)
 
-        self._section("文字")
-        row = self._row("候选字体")
+        row = self._row(group, "候选字体")
         ttk.Combobox(
             row,
             textvariable=self.font_face,
             values=FONTS,
             width=22,
             style="Zhiyin.TCombobox",
-        ).pack(side="right", padx=16)
+        ).pack(side="right", padx=20)
 
-        row = self._row("候选字号")
+        row = self._row(group, "候选字号")
         tk.Spinbox(
             row,
             from_=10,
             to=24,
             textvariable=self.font_point,
             width=8,
+            justify="center",
             font=("Microsoft YaHei UI", 10),
-        ).pack(side="right", padx=16)
+        ).pack(side="right", padx=20)
 
-        self._section("悬浮状态栏")
-        row = self._row("透明度")
+        group = self._section("悬浮工具栏")
+        row = self._row(group, "工具栏透明度")
         tk.Scale(
             row,
             from_=0.65,
@@ -531,107 +814,152 @@ class SettingsWindow:
             orient="horizontal",
             variable=self.opacity,
             showvalue=True,
-            length=220,
+            length=230,
             bg=PANEL,
             fg=FG,
+            troughcolor="#eceef2",
+            activebackground=ACCENT,
             highlightthickness=0,
-        ).pack(side="right", padx=16)
+        ).pack(side="right", padx=20)
 
-    def _tool_button(self, label, command, secondary=False):
-        return tk.Button(
-            self.body,
-            text=label,
-            command=command,
-            bg="#ffffff" if secondary else ACCENT,
-            fg=FG if secondary else "#ffffff",
-            activebackground="#eeeeee" if secondary else "#bc3d30",
-            activeforeground=FG if secondary else "#ffffff",
-            highlightbackground=BORDER,
-            bd=1 if secondary else 0,
-            relief="solid" if secondary else "flat",
-            padx=16,
-            pady=9,
-            font=("Microsoft YaHei UI", 9),
-            cursor="hand2",
-        )
+    def _render_dictionary(self):
+        self.page_title.configure(text="词库")
 
-    def _render_tools(self):
-        self.page_title.configure(text="工具")
-        self.page_subtitle.configure(text="部署、修复和辅助输入")
-        self._section("常用工具")
-        actions = tk.Frame(self.body, bg=BG)
-        actions.pack(fill="x", pady=(0, 20))
-        self._tool_button("打开手写输入", self.open_handwriting).pack(
-            side="left", padx=(0, 8)
+        group = self._section("输入方案")
+        selected = self.schema.get()
+        for label, _schema_id in SCHEMAS:
+            row = self._row(group, label)
+            self._value(
+                row,
+                "默认" if label == selected else "已安装",
+                accent=label == selected,
+            )
+
+        group = self._section("用户词典")
+        row = self._row(
+            group,
+            "词库目录",
+            str(RIME_DIR),
         )
-        self._tool_button(
+        self._action_button(row, "打开", self.open_rime_directory)
+
+        row = self._row(
+            group,
+            "重新部署词库",
+            "重新生成输入方案和用户词典缓存",
+        )
+        self._action_button(row, "部署", self.redeploy, primary=True)
+
+    def _render_keys(self):
+        self.page_title.configure(text="按键")
+
+        group = self._section("输入法快捷键")
+        for label, value in (
+            ("切换输入方案", "Ctrl + Shift + 1"),
+            ("中英文切换", "Ctrl + Shift + 2"),
+            ("中英文标点", "Ctrl + ."),
+            ("语音输入", "Ctrl + Alt + V"),
+            ("手写输入", "Ctrl + Alt + H"),
+            ("显示或隐藏工具栏", "Ctrl + Alt + L"),
+        ):
+            row = self._row(group, label)
+            self._value(row, value)
+
+        group = self._section("九键候选操作")
+        for label, value in (
+            ("前后切换候选及拼音", "/  和  *"),
+            ("上一页或下一页", "-  和  +"),
+            ("上屏当前首选", "Enter"),
+        ):
+            row = self._row(group, label)
+            self._value(row, value)
+
+    def _render_advanced(self):
+        self.page_title.configure(text="高级")
+
+        group = self._section("辅助输入")
+        row = self._row(
+            group,
+            "手写输入",
+            "打开知音简体中文手写面板",
+        )
+        self._action_button(row, "打开", self.open_handwriting)
+
+        row = self._row(
+            group,
+            "新手引导",
+            "重新选择使用场景并检查安装状态",
+        )
+        self._action_button(row, "运行", self.open_wizard)
+
+        group = self._section("维护")
+        row = self._row(
+            group,
             "重新部署输入法",
-            self.redeploy,
-            secondary=True,
-        ).pack(side="left", padx=(0, 8))
-        self._tool_button(
-            "重新运行新手引导",
-            self.open_wizard,
-            secondary=True,
-        ).pack(side="left")
-
-        self._section("系统修复")
-        row = self._row(
-            "Windows 输入法名称和图标",
-            "需要管理员授权，修复 Win+Space 中仍显示“小狼毫”的情况",
+            "保存配置后重新生成知音输入方案",
         )
-        tk.Button(
-            row,
-            text="修复品牌",
-            command=self.repair_brand,
-            bg=PANEL,
-            fg=ACCENT,
-            activebackground="#f7e8e5",
-            bd=0,
-            font=("Microsoft YaHei UI", 9, "bold"),
-            cursor="hand2",
-        ).pack(side="right", padx=16)
+        self._action_button(row, "部署", self.redeploy, primary=True)
 
-        self._section("高级")
         row = self._row(
+            group,
+            "Windows 名称和图标",
+            "修复输入法列表中仍显示小狼毫的情况",
+        )
+        self._action_button(row, "修复", self.repair_brand)
+
+        row = self._row(
+            group,
             "Rime 用户目录",
             str(RIME_DIR),
         )
-        tk.Button(
-            row,
-            text="打开目录",
-            command=self.open_rime_directory,
-            bg=PANEL,
-            fg=FG,
-            bd=0,
-            font=("Microsoft YaHei UI", 9),
-            cursor="hand2",
-        ).pack(side="right", padx=16)
+        self._action_button(row, "打开", self.open_rime_directory)
 
     def _render_about(self):
-        self.page_title.configure(text="关于")
-        self.page_subtitle.configure(text="知音输入法 v0.1")
-        self._section("知音输入法")
-        tk.Label(
+        self.page_title.configure(text="关于知音")
+
+        hero = tk.Frame(
             self.body,
-            text=(
-                "面向 Windows 数字小键盘优化的中文输入法。\n"
-                "基于 Rime / 小狼毫和 xuanli199/t9 九键方案开发。"
-            ),
-            bg=BG,
+            bg="#fff8f5",
+            height=126,
+            highlightbackground="#ffe2da",
+            highlightthickness=1,
+        )
+        hero.pack(fill="x", padx=52, pady=(5, 22))
+        hero.pack_propagate(False)
+        if self.icon is not None:
+            tk.Label(
+                hero,
+                image=self.icon,
+                bg="#fff8f5",
+            ).pack(side="left", padx=(24, 18))
+        text = tk.Frame(hero, bg="#fff8f5")
+        text.pack(side="left", fill="y")
+        tk.Label(
+            text,
+            text="知音输入法",
+            bg="#fff8f5",
             fg=FG,
-            justify="left",
-            font=("Microsoft YaHei UI", 11),
-        ).pack(anchor="w", pady=(0, 20))
-        self._section("开发者")
+            font=("Microsoft YaHei UI", 18, "bold"),
+        ).pack(anchor="w", pady=(28, 2))
         tk.Label(
-            self.body,
-            text="李子旺\n2601121787@qq.com",
-            bg=BG,
+            text,
+            text="面向 Windows 数字小键盘优化的中文输入法",
+            bg="#fff8f5",
             fg=MUTED,
-            justify="left",
-            font=("Microsoft YaHei UI", 10),
+            font=("Microsoft YaHei UI", 9),
         ).pack(anchor="w")
+
+        group = self._section("产品信息")
+        row = self._row(group, "版本")
+        self._value(row, "v0.1 开发版")
+        row = self._row(group, "技术基础")
+        self._value(row, "Rime / 小狼毫 · xuanli199/t9")
+
+        group = self._section("开发者")
+        row = self._row(group, "姓名")
+        self._value(row, "李子旺")
+        row = self._row(group, "联系邮箱")
+        self._value(row, "2601121787@qq.com", accent=True)
 
     def apply(self):
         try:
@@ -742,6 +1070,12 @@ class SettingsWindow:
 
 
 def main():
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except (AttributeError, OSError):
+        pass
+    if show_existing_settings():
+        return
     root = tk.Tk()
     SettingsWindow(root)
     root.mainloop()

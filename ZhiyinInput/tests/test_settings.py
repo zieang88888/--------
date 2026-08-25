@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import tkinter as tk
 import unittest
 from pathlib import Path
 
@@ -8,7 +9,11 @@ from pathlib import Path
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR / "tools" / "ZhiyinConfig"))
 
-from zhiyin_settings import patch_scalar, update_patch_values  # noqa: E402
+from zhiyin_settings import (  # noqa: E402
+    SettingsWindow,
+    patch_scalar,
+    update_patch_values,
+)
 
 
 class SettingsConfigurationTests(unittest.TestCase):
@@ -49,6 +54,30 @@ patch:
         self.assertIn('"style/font_point": 14', updated)
         self.assertIn('"unmanaged/value": keep', updated)
         self.assertIn("generator: user", updated)
+
+    def test_all_settings_pages_render(self):
+        try:
+            root = tk.Tk()
+        except tk.TclError as error:
+            self.skipTest(str(error))
+        root.withdraw()
+        try:
+            settings = SettingsWindow(root)
+            pages = {
+                "common": "常用",
+                "appearance": "外观",
+                "dictionary": "词库",
+                "keys": "按键",
+                "advanced": "高级",
+                "about": "关于知音",
+            }
+            for page_id, title in pages.items():
+                settings.show_page(page_id)
+                root.update_idletasks()
+                self.assertEqual(settings.page_title.cget("text"), title)
+                self.assertTrue(settings.body.winfo_children())
+        finally:
+            root.destroy()
 
 
 if __name__ == "__main__":
