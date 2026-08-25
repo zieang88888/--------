@@ -143,6 +143,30 @@ class ToolbarWin32Tests(unittest.TestCase):
 
         self.assertNotIn("text", run.call_args.kwargs)
 
+    def test_handwriting_panel_receives_original_input_window(self):
+        with mock.patch.object(
+            self.toolbar,
+            "launch_python_tool",
+            return_value=True,
+        ) as launch:
+            self.assertTrue(self.toolbar.launch_handwrite(321))
+
+        launch.assert_called_once_with(
+            self.toolbar.HANDWRITING_SCRIPT,
+            "--target",
+            321,
+        )
+
+    def test_settings_button_launches_graphical_settings(self):
+        with mock.patch.object(
+            self.toolbar,
+            "launch_python_tool",
+            return_value=True,
+        ) as launch:
+            self.assertTrue(self.toolbar.launch_settings())
+
+        launch.assert_called_once_with(self.toolbar.SETTINGS_SCRIPT)
+
 
 if __name__ == "__main__":
     unittest.main()

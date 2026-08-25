@@ -5,6 +5,16 @@
 /t9-0.2.tar.gz
 /t9-0.2.zip
 /toolbar-screen.png
+/搜狗/
+
+# Private local notes and personal documents
+/本地文档/
+/private/
+/resume/
+/简历/
+*.doc
+*.docx
+*.pdf
 
 # Rime user data and generated dictionaries
 /useer/

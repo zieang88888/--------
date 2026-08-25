@@ -116,6 +116,15 @@ PROJECT_DIR = Path(__file__).resolve().parents[2]
 ZHIYIN_DIR = APPDATA / "Zhiyin"
 RIME_DIR = get_rime_user_dir()
 CONFIG_FILE = ZHIYIN_DIR / "zhiyin_toolbar.json"
+SETTINGS_SCRIPT = (
+    PROJECT_DIR / "tools" / "ZhiyinConfig" / "zhiyin_settings.py"
+)
+HANDWRITING_SCRIPT = (
+    PROJECT_DIR
+    / "tools"
+    / "ZhiyinHandwriting"
+    / "zhiyin_handwriting.py"
+)
 LOGO_32_PATH = PROJECT_DIR / "assets" / "branding" / "zhiyin-logo-32.png"
 LOGO_64_PATH = PROJECT_DIR / "assets" / "branding" / "zhiyin-logo-64.png"
 ZHIYIN_DIR.mkdir(parents=True, exist_ok=True)
@@ -319,9 +328,36 @@ def launch_voice(target_hwnd=None):
     return send_hotkey([VK_LWIN], ord("H"), target_hwnd)
 
 
-def launch_handwrite(target_hwnd=None):
-    if not focus_input_window(target_hwnd):
+def pythonw_executable():
+    executable = Path(sys.executable)
+    candidate = executable.with_name("pythonw.exe")
+    return candidate if candidate.exists() else executable
+
+
+def launch_python_tool(script, *arguments):
+    script = Path(script)
+    if not script.exists():
         return False
+    try:
+        subprocess.Popen(
+            [
+                str(pythonw_executable()),
+                str(script),
+                *map(str, arguments),
+            ],
+            cwd=str(PROJECT_DIR),
+        )
+        return True
+    except OSError:
+        return False
+
+
+def launch_handwrite(target_hwnd=None):
+    arguments = ()
+    if target_hwnd:
+        arguments = ("--target", int(target_hwnd))
+    if launch_python_tool(HANDWRITING_SCRIPT, *arguments):
+        return True
 
     candidates = (
         COMMON_PROGRAM_FILES / "microsoft shared" / "ink" / "TabTip.exe",
@@ -340,6 +376,10 @@ def launch_handwrite(target_hwnd=None):
         return True
     except OSError:
         return False
+
+
+def launch_settings():
+    return launch_python_tool(SETTINGS_SCRIPT)
 
 
 def open_directory(path):
@@ -814,8 +854,8 @@ class ZhiyinToolbar:
             self.flash(f"已选择“{label}”，请重新部署小狼毫")
 
     def cmd_settings(self):
-        if not open_directory(RIME_DIR):
-            self.flash("无法打开小狼毫设置目录")
+        if not launch_settings():
+            self.flash("知音设置启动失败")
 
     def cmd_toolbox(self):
         menu = tk.Menu(self.root, tearoff=0)
