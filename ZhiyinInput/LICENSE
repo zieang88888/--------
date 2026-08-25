@@ -1,0 +1,29 @@
+Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   Copyright 2026 李子旺 (Zhiyin IME)
+   Copyright 2024 玄离199 (original t9 schema)
+   Copyright 2024 Rime / Weasel 项目 contributors
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+================================================================================
+基于以下开源项目的修改：
+================================================================================
+  - Rime / librime  (BSD-3-Clause)        https://github.com/rime/librime
+  - Weasel (小狼毫) (GPL-3.0)             https://github.com/rime/weasel
+  - xuanli199/t9   (MIT)                  https://github.com/xuanli199/t9
+
+知音输入法新增部分（含悬浮工具栏、新手引导、设置面板、Lua 扩展）使用
+Apache-2.0 许可证；继承自原作的 YAML 配置继续遵循原作许可证条款。

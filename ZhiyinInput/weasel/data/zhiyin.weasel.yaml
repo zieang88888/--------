@@ -1,0 +1,118 @@
+# 知音输入法 weasel.custom.yaml 模板
+# encoding: utf-8
+# Weasel 使用 BGR 色值。
+
+customization:
+  distribution_code_name: Weasel
+  generator: "Zhiyin IME"
+  modified_time: "2026-08-25"
+
+patch:
+  "show_notifications": true
+  "show_notifications_time": 1200
+  "global_ascii": false
+
+  "style/antialias_mode": clear_type
+  "style/ascii_tip_follow_cursor": false
+  "style/color_scheme": zhiyin_red
+  "style/font_face": "Microsoft YaHei UI"
+  "style/label_font_face": "Microsoft YaHei UI"
+  "style/comment_font_face": "Microsoft YaHei UI"
+  "style/font_point": 16
+  "style/label_font_point": 12
+  "style/comment_font_point": 11
+  "style/candidate_abbreviate_length": 0
+  "style/click_to_capture": false
+  "style/horizontal": false
+  "style/fullscreen": false
+  "style/inline_preedit": false
+  "style/preedit_type": composition
+  "style/display_tray_icon": true
+  "style/label_format": "%s."
+  "style/mark_text": ""
+  "style/hover_type": semi_light
+  "style/paging_on_scroll": false
+  "style/layout/align_type": center
+  "style/layout/max_width": 600
+  "style/layout/min_width": 240
+  "style/layout/max_height": 260
+  "style/layout/border_width": 1
+  "style/layout/margin_x": 16
+  "style/layout/margin_y": 14
+  "style/layout/spacing": 12
+  "style/layout/candidate_spacing": 6
+  "style/layout/hilite_spacing": 4
+  "style/layout/hilite_padding": 4
+  "style/layout/round_corner": 8
+  "style/layout/corner_radius": 8
+  "style/layout/shadow_radius": 6
+  "style/layout/shadow_offset_x": 0
+  "style/layout/shadow_offset_y": 4
+  "style/layout/linespacing": 8
+
+  "preset_color_schemes/zhiyin_red":
+    name: "知音·朱砂"
+    author: "李子旺"
+    text_color: 0x1f1f1f
+    back_color: 0xf7f5f2
+    shadow_color: 0x33000000
+    border_color: 0x454fc9
+    hilited_text_color: 0xffffff
+    hilited_back_color: 0x454fc9
+    hilited_shadow_color: 0x33454fc9
+    hilited_candidate_text_color: 0xffffff
+    hilited_candidate_back_color: 0x454fc9
+    hilited_candidate_shadow_color: 0x33454fc9
+    candidate_text_color: 0x1f1f1f
+    candidate_back_color: 0xf7f5f2
+    candidate_shadow_color: 0x00000000
+    comment_text_color: 0x454fc9
+    hilited_comment_text_color: 0xffffff
+
+  "preset_color_schemes/ink_gray":
+    name: "知音·水墨"
+    author: "李子旺"
+    text_color: 0x2c2c2c
+    back_color: 0xfafafd
+    shadow_color: 0x33000000
+    border_color: 0x575757
+    hilited_text_color: 0xffffff
+    hilited_back_color: 0x373737
+    hilited_candidate_text_color: 0xffffff
+    hilited_candidate_back_color: 0x373737
+    candidate_text_color: 0x2c2c2c
+    candidate_back_color: 0xfafafd
+    comment_text_color: 0x808080
+    hilited_comment_text_color: 0xd0d0d0
+
+  "preset_color_schemes/cyber_cyan":
+    name: "知音·清透青"
+    author: "李子旺"
+    text_color: 0xd9d9d9
+    back_color: 0x18120f
+    shadow_color: 0x88000000
+    border_color: 0xd4a629
+    hilited_text_color: 0x18120f
+    hilited_back_color: 0xd4a629
+    hilited_candidate_text_color: 0x18120f
+    hilited_candidate_back_color: 0xd4a629
+    candidate_text_color: 0xd9d9d9
+    candidate_back_color: 0x24201d
+    comment_text_color: 0xd4a629
+    hilited_comment_text_color: 0x18120f
+
+  "preset_color_schemes/cherry_pink":
+    name: "知音·樱粉"
+    author: "李子旺"
+    text_color: 0x3a2c6a
+    back_color: 0xf5f5ff
+    shadow_color: 0x33000000
+    border_color: 0xb8a4f8
+    hilited_text_color: 0xffffff
+    hilited_back_color: 0xb8a4f8
+    hilited_candidate_text_color: 0xffffff
+    hilited_candidate_back_color: 0xb8a4f8
+    candidate_text_color: 0x3a2c6a
+    candidate_back_color: 0xf5f5ff
+    comment_text_color: 0xb8a4f8
+    hilited_comment_text_color: 0xffffff

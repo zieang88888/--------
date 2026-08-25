@@ -1,0 +1,157 @@
+# Rime schema
+# encoding: utf-8
+#
+# ====================================================================
+# 知音 全键·26键拼音 (zhiyin_full)
+# ====================================================================
+# 基于明月拼音 (luna_pinyin) 升级。专为习惯了标准 26 键的用户设计。
+#
+# 知音增强：
+#   - 候选词 comment 原生显示完整拼音
+#   - `\` 切换下一候选并查看其拼音
+#   - `[` / `]` 查看前后页候选
+#   - 独立工具栏联动
+#
+# 默认按键：
+#   - a~z 全拼 / ' 分隔音节
+#   - 空格：上屏首选 / Tab：循环候选
+#   - BackSpace：删除 / Escape：清空
+#   - Shift：临时英文 / Control+Shift+1：切方案
+# ====================================================================
+
+schema:
+  schema_id: zhiyin_full
+  name: "知音全键"
+  version: "1.0.0"
+  author:
+    - 李子旺 (知音输入法开发者)
+  description: |
+    知音·26 键全拼，基于明月拼音 (luna_pinyin) 词典 + 八股文词频。
+    与九键方案共用一套词典，可与知音九键交叉切换 (Ctrl+Shift+1)。
+
+switches:
+  - name: ascii_mode
+    reset: 0
+    states: [ 中文, 西文 ]
+    abbrev: [ 中, Ａ ]
+  - name: full_shape
+    states: [ 半角, 全角 ]
+  - options:
+      - zh_hans
+      - zh_hant
+    reset: 0
+    states:
+      - 简化字
+      - 傳統漢字
+    abbrev: [ 简, 繁 ]
+  - name: ascii_punct
+    states: [ 。，, ．， ]
+
+engine:
+  processors:
+    - ascii_composer
+    - recognizer
+    - key_binder
+    - speller
+    - selector
+    - punctuator
+    - navigator
+    - express_editor
+  segmentors:
+    - ascii_segmentor
+    - matcher
+    - abc_segmentor
+    - punct_segmentor
+    - fallback_segmentor
+  translators:
+    - punct_translator
+    - table_translator@custom_phrase
+    - script_translator
+  filters:
+    - simplifier@zh_variant
+    - uniquifier
+
+speller:
+  alphabet: zyxwvutsrqponmlkjihgfedcba
+  initials: zyxwvutsrqponmlkjihgfedcba
+  delimiter: "'"
+
+translator:
+  dictionary: luna_pinyin
+  prism: zhiyin_full
+  enable_completion: true
+  enable_sentence: true
+  enable_user_dict: true
+  enable_encoder: false
+  preedit_format: []
+  preedit_uses_spelling: true
+  spelling_hints: 9
+  comment_format:
+    - xform/([nl])v/$1ü/
+    - xform/([jqxy])v/$1u/
+
+custom_phrase:
+  dictionary: ""
+  user_dict: custom_phrase
+  db_class: stabledb
+  enable_completion: false
+  enable_sentence: false
+  initial_quality: 1
+
+punctuator:
+  half_shape:
+    '1': { commit: ， }
+    '0': { commit: ' ' }
+    '.': { commit: 。 }
+  full_shape:
+    '1': { commit: ， }
+    '0': { commit: '　' }
+    '.': { commit: 。 }
+
+key_binder:
+  bindings:
+    # emacs
+    - { when: composing, accept: Control+p, send: Up }
+    - { when: composing, accept: Control+n, send: Down }
+    - { when: composing, accept: Control+b, send: Left }
+    - { when: composing, accept: Control+f, send: Right }
+    - { when: composing, accept: Control+a, send: Home }
+    - { when: composing, accept: Control+e, send: End }
+    - { when: composing, accept: Control+d, send: Delete }
+    - { when: composing, accept: Control+k, send: Shift+Delete }
+    - { when: composing, accept: Control+h, send: BackSpace }
+    - { when: composing, accept: Control+g, send: Escape }
+    # 翻页
+    - { when: has_menu, accept: minus,  send: Page_Up }
+    - { when: has_menu, accept: equal,  send: Page_Down }
+    - { when: paging,  accept: comma,  send: Page_Up }
+    - { when: has_menu, accept: period, send: Page_Down }
+    # 模式切换
+    - { when: always, accept: Control+Shift+1, select: .next }
+    - { when: always, accept: Control+Shift+2, toggle: ascii_mode }
+    - { when: always, accept: Control+Shift+3, toggle: full_shape }
+    - { when: always, accept: Control+Shift+4, toggle: zh_hans }
+    - { when: always, accept: Shift+space, toggle: full_shape }
+    - { when: always, accept: Control+period, toggle: ascii_punct }
+    # 拼音切换 / 更多候选（兼容原生 librime）
+    - { when: has_menu, accept: backslash, send: Tab }
+    - { when: paging, accept: bracketleft, send: Page_Up }
+    - { when: has_menu, accept: bracketright, send: Page_Down }
+
+recognizer:
+  import_preset: default
+  patterns:
+    punct: '^/([0-9]0?|[A-Za-z]+)$'
+
+zh_variant:
+  option_name: zh_hans
+  opencc_config: t2s.json
+  tips: none
+  tags: [ abc ]
+  excluded_types: [ punct ]
+
+menu:
+  page_size: 7
+
+__patch:
+  - zhiyin_full.custom:/patch?

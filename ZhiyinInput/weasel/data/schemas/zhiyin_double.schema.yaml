@@ -1,0 +1,145 @@
+# Rime schema
+# encoding: utf-8
+#
+# ====================================================================
+# 知音 双拼·自然码方案 (zhiyin_double)
+# ====================================================================
+# 基于自然码双拼 (terra_pinyin) 升级。
+# 双拼方案键盘映射：
+#   声母：b p m f d t n l g k h j q x r z c s y w
+#   韵母（自然码映射）：
+#     a   o   e   i   u   v   ai  ei  ui  ao  ou  iu  ie  ve  er
+#     a   o   e   i   u   v   j   z   v   k   l   q   x   w   r
+#     an  en  in  un  vn  ang eng ing ong
+#     j   f   b   y   v   h   g   m   s
+# ====================================================================
+
+schema:
+  schema_id: zhiyin_double
+  name: "知音双拼"
+  version: "1.0.0"
+  author:
+    - 李子旺 (知音输入法开发者)
+  description: |
+    知音·双拼方案，自然码方案 + 八股文词频。
+    继承自 Rime 内置 terra_pinyin，显示拼音注释并支持候选翻页。
+
+switches:
+  - name: ascii_mode
+    reset: 0
+    states: [ 中文, 西文 ]
+    abbrev: [ 中, Ａ ]
+  - name: full_shape
+    states: [ 半角, 全角 ]
+  - options:
+      - zh_hans
+      - zh_hant
+    reset: 0
+    states:
+      - 简化字
+      - 傳統漢字
+    abbrev: [ 简, 繁 ]
+  - name: ascii_punct
+    states: [ 。，, ．， ]
+
+engine:
+  processors:
+    - ascii_composer
+    - recognizer
+    - key_binder
+    - speller
+    - selector
+    - punctuator
+    - navigator
+    - express_editor
+  segmentors:
+    - ascii_segmentor
+    - matcher
+    - abc_segmentor
+    - punct_segmentor
+    - fallback_segmentor
+  translators:
+    - punct_translator
+    - table_translator@custom_phrase
+    - script_translator
+  filters:
+    - simplifier@zh_variant
+    - uniquifier
+
+speller:
+  alphabet: zyxwvutsrqponmlkjihgfedcba
+  initials: zyxwvutsrqponmlkjihgfedcba
+  delimiter: "'"
+  # 自然码双拼
+  algebra:
+    - erase/^([bpmfdtnlgkhjqxzcsryw])([^aeiou])$/$1$2'e/
+    - derive/^([bpmfdtnlgkhjqxzcsryw])([aeiou])$/$1$2/
+    - derive/^([bpmfdtnlgkhjqxzcsryw])([aeiou])([aeiou])/$1$2$3/
+    - derive/^([bpmfdtnlgkhjqxzcsryw])([aeiou])([aeiou])([aeiou])/$1$2$3$4/
+    - xform/^([bpmfdtnlgkhjqxzcsryw])([jzvqlkxwbzfhgs])/$1$2/
+
+translator:
+  dictionary: terra_pinyin
+  prism: zhiyin_double
+  enable_completion: true
+  enable_sentence: true
+  enable_user_dict: true
+  enable_encoder: false
+  preedit_format: []
+  preedit_uses_spelling: true
+  spelling_hints: 9
+  comment_format:
+    - xform/([nl])v/$1ü/
+    - xform/([jqxy])v/$1u/
+
+custom_phrase:
+  dictionary: ""
+  user_dict: custom_phrase
+  db_class: stabledb
+  enable_completion: false
+  enable_sentence: false
+  initial_quality: 1
+
+key_binder:
+  bindings:
+    - { when: composing, accept: Control+p, send: Up }
+    - { when: composing, accept: Control+n, send: Down }
+    - { when: composing, accept: Control+b, send: Left }
+    - { when: composing, accept: Control+f, send: Right }
+    - { when: composing, accept: Control+a, send: Home }
+    - { when: composing, accept: Control+e, send: End }
+    - { when: composing, accept: Control+d, send: Delete }
+    - { when: composing, accept: Control+k, send: Shift+Delete }
+    - { when: composing, accept: Control+h, send: BackSpace }
+    - { when: composing, accept: Control+g, send: Escape }
+    - { when: has_menu, accept: minus,  send: Page_Up }
+    - { when: has_menu, accept: equal,  send: Page_Down }
+    - { when: paging,  accept: comma,  send: Page_Up }
+    - { when: has_menu, accept: period, send: Page_Down }
+    - { when: always, accept: Control+Shift+1, select: .next }
+    - { when: always, accept: Control+Shift+2, toggle: ascii_mode }
+    - { when: always, accept: Control+Shift+3, toggle: full_shape }
+    - { when: always, accept: Control+Shift+4, toggle: zh_hans }
+    - { when: always, accept: Shift+space, toggle: full_shape }
+    - { when: always, accept: Control+period, toggle: ascii_punct }
+    - { when: has_menu, accept: backslash, send: Tab }
+    - { when: paging, accept: bracketleft, send: Page_Up }
+    - { when: has_menu, accept: bracketright, send: Page_Down }
+
+recognizer:
+  import_preset: default
+  patterns:
+    punct: '^/([0-9]0?|[A-Za-z]+)$'
+
+zh_variant:
+  option_name: zh_hans
+  opencc_config: t2s.json
+  tips: none
+  tags: [ abc ]
+  excluded_types: [ punct ]
+
+menu:
+  page_size: 7
+
+__patch:
+  - zhiyin_double.custom:/patch?

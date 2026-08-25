@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">知音输入法 Logo</title>
+  <desc id="desc">朱砂红圆角底板上的九宫格按键，中央按键包含声音波形。</desc>
+  <rect x="64" y="64" width="896" height="896" rx="196" fill="#C94F45"/>
+  <g fill="#FFF8F2">
+    <rect x="244" y="244" width="152" height="152" rx="38"/>
+    <rect x="436" y="244" width="152" height="152" rx="38"/>
+    <rect x="628" y="244" width="152" height="152" rx="38"/>
+    <rect x="244" y="436" width="152" height="152" rx="38"/>
+    <rect x="628" y="436" width="152" height="152" rx="38"/>
+    <rect x="244" y="628" width="152" height="152" rx="38"/>
+    <rect x="436" y="628" width="152" height="152" rx="38"/>
+    <rect x="628" y="628" width="152" height="152" rx="38"/>
+  </g>
+  <rect x="436" y="436" width="152" height="152" rx="38" fill="#242424"/>
+  <g fill="#FFF8F2">
+    <rect x="466" y="494" width="12" height="36" rx="6"/>
+    <rect x="486" y="478" width="12" height="68" rx="6"/>
+    <rect x="506" y="464" width="12" height="96" rx="6"/>
+    <rect x="526" y="478" width="12" height="68" rx="6"/>
+    <rect x="546" y="494" width="12" height="36" rx="6"/>
+  </g>
+</svg>

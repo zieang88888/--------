@@ -1,0 +1,31 @@
+# 知音输入法 default.custom.yaml 模板
+# encoding: utf-8
+
+customization:
+  distribution_code_name: Weasel
+  generator: "Zhiyin IME"
+  modified_time: "2026-08-25"
+
+patch:
+  schema_list:
+    - schema: zhiyin_t9
+    - schema: zhiyin_full
+    - schema: zhiyin_t9_pos
+    - schema: zhiyin_double
+
+  "switcher/caption": "〔知音·方案选单〕"
+  "switcher/hotkeys":
+    - Control+grave
+    - Control+Shift+grave
+    - F4
+  "switcher/save_options":
+    - full_shape
+    - ascii_punct
+    - zh_hans
+    - zh_hant
+  "switcher/fold_options": true
+  "switcher/abbreviate_options": true
+  "switcher/option_list_separator": "／"
+
+  "menu/page_size": 7
+  "menu/alternative_select_keys": "!@#$%^&"

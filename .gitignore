@@ -1,0 +1,29 @@
+# Local downloads and third-party runtime files
+/0.02.exe
+/123/
+/t9-0.2/
+/t9-0.2.tar.gz
+/t9-0.2.zip
+/toolbar-screen.png
+
+# Rime user data and generated dictionaries
+/useer/
+*.userdb/
+*.prism.bin
+*.reverse.bin
+*.table.bin
+
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Build and editor output
+build/
+dist/
+*.log
+*.tmp
+*.bak
+.idea/
+.vscode/
