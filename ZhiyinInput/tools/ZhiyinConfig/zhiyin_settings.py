@@ -311,8 +311,17 @@ class SettingsWindow:
         self.status = tk.StringVar(value="已加载当前配置")
         self.active_page = None
         self.nav_buttons = {}
+        self.property_pages = {
+            "common",
+            "appearance",
+            "dictionary",
+            "keys",
+            "advanced",
+        }
         self.group_row_counts = {}
         self.theme_items = []
+        self.autosave_job = None
+        self.autosave_ready = False
 
         root.title(SETTINGS_WINDOW_TITLE)
         root.geometry("1040x680")
@@ -322,7 +331,10 @@ class SettingsWindow:
         self._center()
         self._configure_styles()
         self._build_shell()
-        self.show_page("common")
+        self.show_page("home")
+        self._bind_setting_changes()
+        self.autosave_ready = True
+        root.protocol("WM_DELETE_WINDOW", self.close)
 
     def _set_icon(self):
         self.icon = None
@@ -393,13 +405,13 @@ class SettingsWindow:
             font=("Microsoft YaHei UI", 13, "bold"),
         ).pack(side="left")
 
-        tk.Label(
-            self.sidebar,
-            text="属性设置",
-            bg=SIDEBAR,
-            fg=MUTED,
-            font=("Microsoft YaHei UI", 9),
-        ).pack(anchor="w", padx=32, pady=(8, 6))
+        for page_id, label, icon in (
+            ("home", "个人主页", "⌂"),
+            ("themes", "皮肤中心", "◆"),
+            ("services", "扩展服务", "▣"),
+            ("properties", "属性设置", "⚙"),
+        ):
+            self._add_nav_button(page_id, label, icon=icon)
 
         for page_id, label in (
             ("common", "常用"),
@@ -408,11 +420,11 @@ class SettingsWindow:
             ("keys", "按键"),
             ("advanced", "高级"),
         ):
-            self._add_nav_button(page_id, label)
+            self._add_nav_button(page_id, label, indent=True)
 
         separator = tk.Frame(self.sidebar, bg="#e8eaf0", height=1)
         separator.pack(fill="x", padx=25, pady=(13, 10))
-        self._add_nav_button("about", "关于知音")
+        self._add_nav_button("about", "关于知音", icon="ⓘ")
 
         tk.Label(
             self.sidebar,
@@ -435,52 +447,14 @@ class SettingsWindow:
             fg=FG,
             font=("Microsoft YaHei UI", 23, "bold"),
         )
-        self.page_title.pack(anchor="w", padx=52, pady=(29, 0))
-
-        footer = tk.Frame(content, bg=PANEL, height=62)
-        footer.pack(side="bottom", fill="x")
-        footer.pack_propagate(False)
-        tk.Frame(footer, bg=BORDER, height=1).pack(fill="x")
+        self.page_title.pack(side="left", padx=52, pady=(20, 0))
         tk.Label(
-            footer,
+            self.header,
             textvariable=self.status,
             bg=PANEL,
             fg=MUTED,
             font=("Microsoft YaHei UI", 9),
-        ).pack(side="left", padx=52)
-        self.apply_button = tk.Button(
-            footer,
-            text="应用",
-            bg=ACCENT,
-            fg="#ffffff",
-            activebackground=ACCENT_DARK,
-            activeforeground="#ffffff",
-            bd=0,
-            relief="flat",
-            width=10,
-            pady=8,
-            font=("Microsoft YaHei UI", 10),
-            cursor="hand2",
-            command=self.apply,
-        )
-        self.apply_button.pack(side="right", padx=(8, 30), pady=12)
-        tk.Button(
-            footer,
-            text="关闭",
-            bg=PANEL,
-            fg=FG,
-            activebackground=SIDEBAR_HOVER,
-            activeforeground=FG,
-            highlightbackground=BORDER,
-            highlightthickness=1,
-            bd=0,
-            relief="flat",
-            width=9,
-            pady=7,
-            font=("Microsoft YaHei UI", 10),
-            cursor="hand2",
-            command=self.root.destroy,
-        ).pack(side="right", pady=12)
+        ).pack(side="right", padx=34, pady=(23, 0))
 
         page_host = tk.Frame(content, bg=PANEL)
         page_host.pack(fill="both", expand=True)
@@ -509,10 +483,12 @@ class SettingsWindow:
         self.body_canvas.bind("<Enter>", self._bind_mousewheel)
         self.body_canvas.bind("<Leave>", self._unbind_mousewheel)
 
-    def _add_nav_button(self, page_id, label):
+    def _add_nav_button(self, page_id, label, icon="", indent=False):
+        text = f"{icon}  {label}" if icon else label
+        target = "common" if page_id == "properties" else page_id
         button = tk.Button(
             self.sidebar,
-            text=label,
+            text=text,
             anchor="w",
             bg=SIDEBAR,
             fg=FG,
@@ -521,10 +497,10 @@ class SettingsWindow:
             bd=0,
             relief="flat",
             font=("Microsoft YaHei UI", 10),
-            padx=24,
-            pady=8,
+            padx=58 if indent else 24,
+            pady=6 if indent else 8,
             cursor="hand2",
-            command=lambda selected=page_id: self.show_page(selected),
+            command=lambda selected=target: self.show_page(selected),
         )
         button.pack(fill="x", padx=18, pady=1)
         self.nav_buttons[page_id] = button
@@ -545,6 +521,38 @@ class SettingsWindow:
 
     def _on_mousewheel(self, event):
         self.body_canvas.yview_scroll(int(-event.delta / 120), "units")
+
+    def _bind_setting_changes(self):
+        variables = (
+            self.schema,
+            self.page_size,
+            self.horizontal,
+            self.theme,
+            self.font_face,
+            self.font_point,
+            self.opacity,
+        )
+        for variable in variables:
+            variable.trace_add("write", self._setting_changed)
+
+    def _setting_changed(self, *_args):
+        if not self.autosave_ready:
+            return
+        if self.autosave_job is not None:
+            self.root.after_cancel(self.autosave_job)
+        self.status.set("正在保存…")
+        self.autosave_job = self.root.after(700, self._autosave)
+
+    def _autosave(self):
+        self.autosave_job = None
+        self.apply()
+
+    def close(self):
+        if self.autosave_job is not None:
+            self.root.after_cancel(self.autosave_job)
+            self.autosave_job = None
+            self.apply()
+        self.root.destroy()
 
     def _clear_body(self):
         for widget in self.body.winfo_children():
@@ -648,21 +656,36 @@ class SettingsWindow:
         self.active_page = page_id
         for key, button in self.nav_buttons.items():
             active = key == page_id
+            parent_active = (
+                key == "properties"
+                and page_id in self.property_pages
+            )
             button.configure(
-                bg=ACCENT_SOFT if active else SIDEBAR,
-                fg=ACCENT if active else FG,
-                activebackground=(
-                    ACCENT_SOFT if active else SIDEBAR_HOVER
+                bg=(
+                    ACCENT_SOFT
+                    if active or parent_active
+                    else SIDEBAR
                 ),
-                activeforeground=ACCENT if active else FG,
+                fg=ACCENT if active or parent_active else FG,
+                activebackground=(
+                    ACCENT_SOFT
+                    if active or parent_active
+                    else SIDEBAR_HOVER
+                ),
+                activeforeground=(
+                    ACCENT if active or parent_active else FG
+                ),
                 font=(
                     "Microsoft YaHei UI",
                     10,
-                    "bold" if active else "normal",
+                    "bold" if active or parent_active else "normal",
                 ),
             )
         self._clear_body()
         {
+            "home": self._render_home,
+            "themes": self._render_themes,
+            "services": self._render_services,
             "common": self._render_common,
             "appearance": self._render_appearance,
             "dictionary": self._render_dictionary,
@@ -671,6 +694,312 @@ class SettingsWindow:
             "about": self._render_about,
         }[page_id]()
         self._update_scroll_region()
+
+    def _dashboard_card(self, parent, title, value, detail):
+        card = tk.Frame(
+            parent,
+            bg=PANEL,
+            height=116,
+            highlightbackground=BORDER,
+            highlightthickness=1,
+        )
+        card.pack_propagate(False)
+        tk.Label(
+            card,
+            text=title,
+            bg=PANEL,
+            fg=FG,
+            font=("Microsoft YaHei UI", 10),
+        ).pack(anchor="w", padx=22, pady=(17, 2))
+        tk.Label(
+            card,
+            text=value,
+            bg=PANEL,
+            fg=FG,
+            font=("Microsoft YaHei UI", 17, "bold"),
+        ).pack(anchor="w", padx=22)
+        tk.Label(
+            card,
+            text=detail,
+            bg=PANEL,
+            fg=MUTED,
+            font=("Microsoft YaHei UI", 8),
+        ).pack(anchor="w", padx=22, pady=(3, 0))
+        return card
+
+    def _render_home(self):
+        self.page_title.configure(text="个人主页")
+
+        hero = tk.Frame(
+            self.body,
+            bg="#fff7f3",
+            height=148,
+            highlightbackground="#ffe3da",
+            highlightthickness=1,
+        )
+        hero.pack(fill="x", padx=52, pady=(6, 26))
+        hero.pack_propagate(False)
+        if self.icon is not None:
+            tk.Label(
+                hero,
+                image=self.icon,
+                bg="#fff7f3",
+            ).pack(side="left", padx=(28, 20))
+        profile = tk.Frame(hero, bg="#fff7f3")
+        profile.pack(side="left", fill="y")
+        tk.Label(
+            profile,
+            text="本机模式",
+            bg="#fff7f3",
+            fg=FG,
+            font=("Microsoft YaHei UI", 16, "bold"),
+        ).pack(anchor="w", pady=(37, 3))
+        tk.Label(
+            profile,
+            text="知音配置和用户词典保存在当前电脑",
+            bg="#fff7f3",
+            fg=MUTED,
+            font=("Microsoft YaHei UI", 9),
+        ).pack(anchor="w")
+        tk.Label(
+            hero,
+            text="运行正常",
+            bg=ACCENT,
+            fg="#ffffff",
+            padx=20,
+            pady=7,
+            font=("Microsoft YaHei UI", 9),
+        ).pack(side="right", padx=30)
+
+        grid = tk.Frame(self.body, bg=PANEL)
+        grid.pack(fill="x", padx=52)
+        grid.columnconfigure(0, weight=1)
+        grid.columnconfigure(1, weight=1)
+        cards = (
+            (
+                "默认方案",
+                self.schema.get(),
+                "Win + Space 后使用的首选知音方案",
+            ),
+            (
+                "候选数量",
+                f"{self.page_size.get()} 个",
+                "每页显示的候选词数量",
+            ),
+            (
+                "候选主题",
+                self.theme.get(),
+                "当前候选窗口配色",
+            ),
+            (
+                "输入方案",
+                f"{len(SCHEMAS)} 个",
+                "知音内置输入方案",
+            ),
+        )
+        for index, (title, value, detail) in enumerate(cards):
+            card = self._dashboard_card(grid, title, value, detail)
+            card.grid(
+                row=index // 2,
+                column=index % 2,
+                sticky="nsew",
+                padx=(0, 9) if index % 2 == 0 else (9, 0),
+                pady=(0, 16),
+            )
+
+    def _theme_preview(self, parent, label, color):
+        active = self.theme.get() == label
+        card = tk.Frame(
+            parent,
+            bg=PANEL,
+            height=154,
+            highlightbackground=ACCENT if active else BORDER,
+            highlightthickness=2 if active else 1,
+            cursor="hand2",
+        )
+        card.grid_propagate(False)
+        preview = tk.Canvas(
+            card,
+            height=90,
+            bg="#f7f8fa",
+            bd=0,
+            highlightthickness=0,
+            cursor="hand2",
+        )
+        preview.pack(fill="x")
+        preview.create_rectangle(
+            24,
+            24,
+            286,
+            67,
+            fill="#ffffff",
+            outline="#e6e8eb",
+        )
+        preview.create_rectangle(
+            24,
+            24,
+            31,
+            67,
+            fill=color,
+            outline=color,
+        )
+        preview.create_text(
+            47,
+            45,
+            text="知音输入法   1. 知音   2. 输入",
+            fill="#30343a",
+            anchor="w",
+            font=("Microsoft YaHei UI", 9),
+        )
+        caption = tk.Frame(card, bg=PANEL)
+        caption.pack(fill="both", expand=True)
+        tk.Label(
+            caption,
+            text=label,
+            bg=PANEL,
+            fg=ACCENT if active else FG,
+            font=(
+                "Microsoft YaHei UI",
+                10,
+                "bold" if active else "normal",
+            ),
+        ).pack(side="left", padx=16)
+        tk.Label(
+            caption,
+            text="使用中" if active else "应用",
+            bg=PANEL,
+            fg=ACCENT,
+            font=("Microsoft YaHei UI", 9),
+        ).pack(side="right", padx=16)
+        for widget in (card, preview, caption):
+            widget.bind(
+                "<Button-1>",
+                lambda _event, value=label: self._choose_theme_page(value),
+            )
+        for widget in caption.winfo_children():
+            widget.bind(
+                "<Button-1>",
+                lambda _event, value=label: self._choose_theme_page(value),
+            )
+        return card
+
+    def _choose_theme_page(self, value):
+        self.theme.set(value)
+        self._render_current_page()
+
+    def _render_current_page(self):
+        if self.active_page:
+            self.show_page(self.active_page)
+
+    def _render_themes(self):
+        self.page_title.configure(text="皮肤中心")
+
+        tabs = tk.Frame(self.body, bg=PANEL)
+        tabs.pack(fill="x", padx=52, pady=(4, 18))
+        tk.Label(
+            tabs,
+            text="候选窗主题",
+            bg=PANEL,
+            fg=FG,
+            font=("Microsoft YaHei UI", 11, "bold"),
+        ).pack(side="left")
+        tk.Frame(tabs, bg=ACCENT, height=3, width=74).place(
+            x=0,
+            rely=1,
+            anchor="sw",
+        )
+
+        grid = tk.Frame(self.body, bg=PANEL)
+        grid.pack(fill="x", padx=52)
+        grid.columnconfigure(0, weight=1)
+        grid.columnconfigure(1, weight=1)
+        for index, (label, _key, color) in enumerate(THEMES):
+            card = self._theme_preview(grid, label, color)
+            card.grid(
+                row=index // 2,
+                column=index % 2,
+                sticky="nsew",
+                padx=(0, 9) if index % 2 == 0 else (9, 0),
+                pady=(0, 18),
+            )
+
+    def _service_tile(
+        self,
+        parent,
+        title,
+        description,
+        command,
+        color,
+    ):
+        tile = tk.Frame(
+            parent,
+            bg=color,
+            height=126,
+            cursor="hand2",
+        )
+        tile.pack_propagate(False)
+        tk.Label(
+            tile,
+            text=title,
+            bg=color,
+            fg=FG,
+            font=("Microsoft YaHei UI", 17, "bold"),
+        ).pack(anchor="w", padx=24, pady=(23, 3))
+        tk.Label(
+            tile,
+            text=description,
+            bg=color,
+            fg=MUTED,
+            font=("Microsoft YaHei UI", 9),
+        ).pack(anchor="w", padx=24)
+        button = tk.Button(
+            tile,
+            text="打开",
+            command=command,
+            bg="#ffffff",
+            fg=ACCENT,
+            activebackground=ACCENT_SOFT,
+            activeforeground=ACCENT,
+            bd=0,
+            padx=14,
+            pady=4,
+            font=("Microsoft YaHei UI", 9),
+            cursor="hand2",
+        )
+        button.place(relx=1, x=-22, rely=0.5, anchor="e")
+        return tile
+
+    def _render_services(self):
+        self.page_title.configure(text="扩展服务")
+
+        featured = tk.Frame(self.body, bg=PANEL)
+        featured.pack(fill="x", padx=52, pady=(6, 26))
+        featured.columnconfigure(0, weight=1)
+        featured.columnconfigure(1, weight=1)
+        handwriting = self._service_tile(
+            featured,
+            "手写输入",
+            "鼠标、触控板和手写笔均可使用",
+            self.open_handwriting,
+            "#e5f8f3",
+        )
+        handwriting.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        deploy = self._service_tile(
+            featured,
+            "配置部署",
+            "重新生成知音输入方案和词库",
+            self.redeploy,
+            "#e9f3ff",
+        )
+        deploy.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+
+        group = self._section("本机服务")
+        row = self._row(group, "新手引导")
+        self._action_button(row, "运行", self.open_wizard)
+        row = self._row(group, "输入法名称和图标")
+        self._action_button(row, "修复", self.repair_brand)
+        row = self._row(group, "用户配置目录")
+        self._action_button(row, "打开", self.open_rime_directory)
 
     def _render_common(self):
         self.page_title.configure(text="常用")
@@ -974,9 +1303,9 @@ class SettingsWindow:
             return
 
         if redeploy_weasel(PROJECT_DIR):
-            self.status.set("设置已保存，正在重新部署知音输入法")
+            self.status.set("已自动保存并重新部署")
         else:
-            self.status.set("设置已保存，请稍后手动重新部署")
+            self.status.set("已自动保存，等待手动部署")
 
     def _save_default_schema(self):
         target = RIME_DIR / "default.custom.yaml"
